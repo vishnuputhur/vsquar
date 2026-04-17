@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Vsquar · Cloud Loan Manager</title>
+  <title>Vsquar · Weekly & Monthly Loan Manager</title>
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
@@ -82,6 +82,7 @@
     }
     .more-details-btn {
       background: #2a9d8f;
+      margin-top: 5px;
       margin-bottom: 10px;
     }
     table {
@@ -257,8 +258,6 @@
   <div class="container">
     <div class="sync-status" id="syncStatus">🔄 Syncing with cloud...</div>
     <h1>Vsquar</h1>
-    <!-- More Details Button (opens details.html in same tab) -->
-    <button id="moreDetailsBtn" class="more-details-btn" style="margin-bottom: 15px;">📄 More Details</button>
     <div class="tabs">
       <div class="tab active" data-tab="dashboard">Dashboard</div>
       <div class="tab" data-tab="customers">Customers</div>
@@ -306,6 +305,8 @@
     <div id="loans" class="tab-content">
       <label>Select Customer</label>
       <select id="loanCustomerId"><option value="">-- select --</option></select>
+      <label>Loan Start Date</label>
+      <input type="date" id="loanStartDate">
       <label>Loan Amount (₹)</label>
       <input type="number" id="loanAmount" placeholder="Amount">
       <label>Monthly Interest Rate (%)</label>
@@ -314,11 +315,12 @@
       <select id="loanMethod">
         <option value="1">1. Monthly interest only (principal at end)</option>
         <option value="2">2. Flexible – interest first, then principal</option>
-        <option value="3">3. EMI (fixed monthly)</option>
+        <option value="3">3. Monthly EMI</option>
+        <option value="4">4. Weekly EMI (equal weekly installments)</option>
       </select>
       <div id="emiFields" style="display:none; margin-top:10px">
-        <label>Tenure (months)</label>
-        <input type="number" id="loanTenure" placeholder="Months">
+        <label id="tenureLabel">Tenure (months)</label>
+        <input type="number" id="loanTenure" placeholder="Number of months/weeks">
       </div>
       <button id="createLoanBtn">Create Loan</button>
       <div id="loanList"></div>
@@ -350,7 +352,7 @@
       </div>
     </div>
 
-    <!-- SETTINGS (with Capital Setting) -->
+    <!-- SETTINGS (password role info removed) -->
     <div id="settings" class="tab-content">
       <div style="margin-bottom: 20px; background:#e9ecef; padding:12px; border-radius:12px;">
         <label>🏦 Set Initial Cash Capital (₹)</label>
@@ -361,11 +363,10 @@
       <hr>
       <button id="resetAllBtn" style="background:#dc3545;">⚠️ Full Reset (Delete All Data)</button>
       <div class="text-muted">Erases customers, loans, transactions, and resets capital to 0.</div>
-      <hr>
-      <div><strong>Role:</strong> <span id="roleDisplay"></span></div>
-      <div class="text-muted">Admin (9947): full control | Viewer (4250): view only, PDF | Fake (0000): time only</div>
     </div>
 
+    <!-- More Details Button at bottom -->
+    <button id="moreDetailsBtn" class="more-details-btn">📄 More Details</button>
     <div class="footer">Vsquar · Equal Partners · Cloud Sync</div>
   </div>
 </div>
@@ -389,21 +390,17 @@
   let customers = [];
   let loans = [];
   let transactions = [];
-  let cashCapital = 0;        // cash on hand
+  let cashCapital = 0;
   let currentRole = "";
   let syncInProgress = false;
 
-  // Helper: save entire state to Firestore (only if admin, after changes)
   async function syncToFirebase() {
     if (currentRole !== "admin") return;
     if (syncInProgress) return;
     syncInProgress = true;
     try {
       const data = {
-        customers: customers,
-        loans: loans,
-        transactions: transactions,
-        cashCapital: cashCapital,
+        customers, loans, transactions, cashCapital,
         lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
       };
       await db.collection(COLLECTION).doc(DOC_ID).set(data);
@@ -414,13 +411,12 @@
       }, 2000);
     } catch (e) {
       console.error("Firestore sync error", e);
-      document.getElementById('syncStatus').innerHTML = "⚠️ Sync failed, retrying...";
+      document.getElementById('syncStatus').innerHTML = "⚠️ Sync failed";
     } finally {
       syncInProgress = false;
     }
   }
 
-  // Load data from Firestore, fallback to localStorage
   async function loadDataFromFirebase() {
     try {
       const docSnap = await db.collection(COLLECTION).doc(DOC_ID).get();
@@ -435,10 +431,6 @@
         localStorage.setItem('vsquar_transactions', JSON.stringify(transactions));
         localStorage.setItem('vsquar_cashCapital', cashCapital);
         document.getElementById('syncStatus').innerHTML = "✅ Loaded from cloud";
-        setTimeout(() => {
-          if (document.getElementById('syncStatus')) 
-            document.getElementById('syncStatus').innerHTML = "☁️ Cloud sync active";
-        }, 1500);
         return true;
       } else {
         loadLocalBackup();
@@ -446,7 +438,6 @@
         return true;
       }
     } catch (e) {
-      console.warn("Firebase read error, using local", e);
       loadLocalBackup();
       return false;
     }
@@ -476,6 +467,7 @@
   function getLoan(id) { return loans.find(l => l.id == id); }
   function getCustomer(id) { return customers.find(c => c.id == id); }
 
+  // recompute outstanding principal (works for weekly as well, using same logic)
   function recomputePrincipal(loan) {
     if(loan.method === 1) {
       return loan.status === 'closed' ? 0 : loan.principalAmount;
@@ -504,7 +496,7 @@
     return out;
   }
 
-  // Add transaction (admin only) - CORRECTED: add FULL amount to cashCapital
+  // Add transaction (admin only) - supports weekly EMI validation
   function addTransaction(loanId, date, amount) {
     if(currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
     const loan = getLoan(loanId);
@@ -514,7 +506,13 @@
     if(amount <= 0) return { success: false, msg: "Amount positive required" };
     
     let interestPortion = 0, principalPortion = 0;
-    const monthlyRate = loan.interestRate / 100;
+    let monthlyRate = loan.interestRate / 100;
+    let periodRate = monthlyRate; // default monthly
+    let daysInPeriod = 30;
+    if(loan.method === 4) { // weekly
+      periodRate = monthlyRate / 4; // weekly interest rate
+      daysInPeriod = 7;
+    }
     const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
     let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
     if(loanTxns.length > 0) lastDate = new Date(loanTxns[0].date);
@@ -539,10 +537,26 @@
         if(principalPortion > outstanding) principalPortion = outstanding;
       }
     }
-    else if(loan.method === 3) {
+    else if(loan.method === 3) { // monthly EMI
       const emi = loan.emiAmount;
-      if(Math.abs(amount - emi) > 0.01) return { success: false, msg: `EMI must be exactly ₹${emi}` };
+      if(Math.abs(amount - emi) > 0.01) return { success: false, msg: `Monthly EMI must be exactly ₹${emi}` };
       let interestDue = outstanding * monthlyRate;
+      interestDue = parseFloat(interestDue.toFixed(2));
+      if(amount <= interestDue) {
+        interestPortion = amount;
+        principalPortion = 0;
+      } else {
+        interestPortion = interestDue;
+        principalPortion = amount - interestDue;
+        if(principalPortion > outstanding) principalPortion = outstanding;
+      }
+    }
+    else if(loan.method === 4) { // weekly EMI
+      const weeklyEmi = loan.emiAmount;
+      if(Math.abs(amount - weeklyEmi) > 0.01) return { success: false, msg: `Weekly EMI must be exactly ₹${weeklyEmi}` };
+      // interest for the week: outstanding * weekly rate
+      let weeklyRate = monthlyRate / 4;
+      let interestDue = outstanding * weeklyRate;
       interestDue = parseFloat(interestDue.toFixed(2));
       if(amount <= interestDue) {
         interestPortion = amount;
@@ -564,7 +578,6 @@
       timestamp: new Date().toISOString()
     };
     transactions.push(newTxn);
-    // FIXED: cash increases by FULL amount received (interest + principal recovery)
     cashCapital += amount;
     const newOut = recomputePrincipal(loan);
     if(newOut <= 0.01 && loan.method !== 1) loan.status = 'closed';
@@ -572,13 +585,19 @@
     return { success: true, msg: "Payment recorded", txn: newTxn };
   }
 
-  function createLoan(custId, amount, rate, method, tenure) {
+  function createLoan(custId, amount, rate, method, tenure, startDateStr) {
     if(currentRole !== "admin") return false;
     if(amount > cashCapital) return false;
     let emi = null;
-    if(method === 3) {
+    if(method === 3) { // monthly EMI
       const r = rate / 100;
       emi = amount * r * Math.pow(1 + r, tenure) / (Math.pow(1 + r, tenure) - 1);
+      emi = Math.round(emi);
+    } else if(method === 4) { // weekly EMI
+      const monthlyRate = rate / 100;
+      const weeklyRate = monthlyRate / 4;
+      const weeks = tenure; // tenure in weeks
+      emi = amount * weeklyRate * Math.pow(1 + weeklyRate, weeks) / (Math.pow(1 + weeklyRate, weeks) - 1);
       emi = Math.round(emi);
     }
     const newLoan = {
@@ -588,8 +607,9 @@
       interestRate: rate,
       method: method,
       status: 'active',
-      startDate: new Date().toISOString().slice(0,10),
-      emiAmount: emi
+      startDate: startDateStr || new Date().toISOString().slice(0,10),
+      emiAmount: emi,
+      tenure: tenure || null
     };
     loans.push(newLoan);
     cashCapital -= amount;
@@ -651,7 +671,7 @@
 
   function fullReset() {
     if(currentRole !== "admin") return;
-    if(confirm("⚠️ FULL RESET: All data will be erased from cloud and local. Cannot undo.")) {
+    if(confirm("⚠️ FULL RESET: All data will be erased. Cannot undo.")) {
       customers = [];
       loans = [];
       transactions = [];
@@ -662,7 +682,7 @@
     }
   }
 
-  // PDF Receipt
+  // PDF Receipt (unchanged)
   function generatePDFReceipt(txn) {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -710,7 +730,7 @@
     return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
   }
 
-  // Due alerts
+  // Due alerts (handles weekly and monthly)
   function getDueAlerts() {
     const alerts = [];
     const today = new Date();
@@ -723,18 +743,25 @@
       const lastTxn = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
       let lastDate = loan.startDate ? new Date(loan.startDate) : today;
       if(lastTxn) lastDate = new Date(lastTxn.date);
-      let nextDueDate = new Date(lastDate);
-      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-      if(nextDueDate >= today && nextDueDate <= nextWeek) {
-        let amountDue = "";
+      let nextDueDate;
+      let amountDue = "";
+      if(loan.method === 4) { // weekly
+        nextDueDate = new Date(lastDate);
+        nextDueDate.setDate(nextDueDate.getDate() + 7);
+        amountDue = `Weekly EMI ₹${loan.emiAmount}`;
+      } else {
+        nextDueDate = new Date(lastDate);
+        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
         if(loan.method === 1) {
           const monthlyInterest = out * (loan.interestRate/100);
           amountDue = `Interest ₹${monthlyInterest.toFixed(2)}`;
         } else if(loan.method === 3 && loan.emiAmount) {
-          amountDue = `EMI ₹${loan.emiAmount}`;
+          amountDue = `Monthly EMI ₹${loan.emiAmount}`;
         } else {
           amountDue = "Flexible payment";
         }
+      }
+      if(nextDueDate >= today && nextDueDate <= nextWeek) {
         alerts.push({
           customer: getCustomer(loan.customerId)?.name || "Unknown",
           dueDate: nextDueDate.toISOString().slice(0,10),
@@ -775,10 +802,15 @@
     container.innerHTML = loans.map(loan => {
       const cust = getCustomer(loan.customerId);
       const out = recomputePrincipal(loan);
+      let methodName = '';
+      if(loan.method===1) methodName='Interest only';
+      else if(loan.method===2) methodName='Flexible';
+      else if(loan.method===3) methodName=`Monthly EMI (₹${loan.emiAmount})`;
+      else methodName=`Weekly EMI (₹${loan.emiAmount}, ${loan.tenure} weeks)`;
       let closeBtn = (currentRole === "admin") ? `<button class="small-btn" data-close="${loan.id}">Close Loan</button>` : '';
       return `<div class="list-item">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">₹${loan.principalAmount}</span></div>
-        <div>Rate: ${loan.interestRate}% | Method: ${loan.method==1?'Interest only':loan.method==2?'Flexible':'EMI'}</div>
+        <div>Rate: ${loan.interestRate}% | Start: ${loan.startDate} | ${methodName}</div>
         <div>Outstanding: ₹${out} | ${loan.status==='closed'?'Closed':'Active'}</div>
         ${closeBtn}
       </div>`;
@@ -909,7 +941,6 @@
     renderTransactions();
     renderDashboard();
     renderReports();
-    document.getElementById('roleDisplay').innerText = currentRole === "admin" ? "Admin (full access)" : "Viewer (read only)";
     if(currentRole === "viewer") {
       const allInputs = document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button');
       allInputs.forEach(el => {
@@ -925,10 +956,10 @@
   
   function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
   
-  // Event listeners
+  // Event handlers
   function initEvents() {
     document.getElementById('moreDetailsBtn')?.addEventListener('click', () => {
-      window.location.href = 'details.html';
+      window.open('details.html', '_blank');
     });
     document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
       if(currentRole !== "admin") return;
@@ -944,20 +975,23 @@
       if(currentRole !== "admin") return;
       const custId = parseInt(document.getElementById('loanCustomerId').value);
       if(!custId) return alert('Select customer');
+      const startDate = document.getElementById('loanStartDate').value;
+      if(!startDate) return alert('Select loan start date');
       const amount = parseFloat(document.getElementById('loanAmount').value);
       const rate = parseFloat(document.getElementById('loanInterest').value);
       const method = parseInt(document.getElementById('loanMethod').value);
       if(isNaN(amount) || amount<=0 || isNaN(rate) || rate<0) return alert('Valid amount and rate');
       if(amount > cashCapital) return alert(`Insufficient cash capital. Available: ₹${cashCapital}`);
       let tenure = null;
-      if(method === 3) {
+      if(method === 3 || method === 4) {
         tenure = parseInt(document.getElementById('loanTenure').value);
-        if(!tenure || tenure<=0) return alert('Tenure required');
+        if(!tenure || tenure<=0) return alert(`Enter number of ${method===3?'months':'weeks'}`);
       }
-      if(createLoan(custId, amount, rate, method, tenure)) {
+      if(createLoan(custId, amount, rate, method, tenure, startDate)) {
         renderAll();
         document.getElementById('loanAmount').value = '';
         document.getElementById('loanInterest').value = '';
+        document.getElementById('loanTenure').value = '';
       } else alert("Loan creation failed");
     });
     document.getElementById('addTransactionBtn')?.addEventListener('click', () => {
@@ -987,11 +1021,22 @@
         renderAll();
         alert(`Withdrew ₹${amount}. New cash on hand: ₹${cashCapital}`);
         document.getElementById('withdrawAmount').value = '';
-      } else alert('Insufficient capital or invalid amount');
+      } else alert('Insufficient capital');
     });
     document.getElementById('resetAllBtn')?.addEventListener('click', () => fullReset());
     document.getElementById('loanMethod')?.addEventListener('change', (e) => {
-      document.getElementById('emiFields').style.display = e.target.value === '3' ? 'block' : 'none';
+      const method = parseInt(e.target.value);
+      const emiDiv = document.getElementById('emiFields');
+      const tenureLabel = document.getElementById('tenureLabel');
+      if(method === 3) {
+        emiDiv.style.display = 'block';
+        tenureLabel.innerText = 'Tenure (months)';
+      } else if(method === 4) {
+        emiDiv.style.display = 'block';
+        tenureLabel.innerText = 'Number of weeks (e.g., 44)';
+      } else {
+        emiDiv.style.display = 'none';
+      }
     });
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -1037,6 +1082,9 @@
     initEvents();
     renderAll();
     document.getElementById('emiFields').style.display = 'none';
+    // Set default start date to today
+    document.getElementById('loanStartDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('txnDate').value = new Date().toISOString().slice(0,10);
   }
   
   document.getElementById('unlockBtn')?.addEventListener('click', unlockApp);
