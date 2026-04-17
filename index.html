@@ -3,61 +3,211 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Vsquar · Weekly EMI & Loan Manager</title>
-  <!-- Firebase SDKs -->
+  <title>Vsquar · Loan Manager</title>
+  <!-- Firebase SDKs only (PDF removed) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <!-- PDF library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
-    .container { max-width: 100%; width: 85%; margin: 20px auto; background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    h1 { text-align: center; color: #0077b6; font-size: 1.7em; }
-    label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; }
-    input, select { width: 40%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.85em; }
-    .output { background: #e0f7fa; padding: 10px; margin-top: 15px; border-radius: 8px; text-align: center; font-size: 0.85em; }
-    .output span { color: red; font-weight: bold; }
-    button { margin-top: 15px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85em; }
-    button.small-btn { width: auto; padding: 5px 10px; margin: 0 3px; display: inline-block; font-size: 0.7em; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 100%;
+      width: 85%;
+      margin: 20px auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #0077b6;
+      font-size: 1.7em;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 0.85em;
+    }
+    input, select {
+      width: 40%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 0.85em;
+    }
+    .output {
+      background: #e0f7fa;
+      padding: 10px;
+      margin-top: 15px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 0.85em;
+    }
+    .output span {
+      color: red;
+      font-weight: bold;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #00b4d8;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      font-size: 0.85em;
+    }
+    button.small-btn {
+      width: auto;
+      padding: 5px 10px;
+      margin: 0 3px;
+      display: inline-block;
+      font-size: 0.7em;
+    }
     button.danger { background: #dc3545; }
     button.warning { background: #f4a261; }
-    .more-details-btn { background: #2a9d8f; margin-top: 5px; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.75em; overflow-x: auto; display: block; }
-    th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
+    .more-details-btn {
+      background: #2a9d8f;
+      margin-top: 5px;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 0.75em;
+      overflow-x: auto;
+      display: block;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 5px;
+      text-align: center;
+    }
     th { background: #90e0ef; }
-    .footer { text-align: center; margin-top: 20px; background: #0077b6; color: #fff; padding: 10px; font-size: 0.75em; border-radius: 8px; }
-    .tabs { display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
-    .tab { cursor: pointer; padding: 7px 14px; background: #0077b6; color: white; border-radius: 8px; font-size: 0.85em; flex: 1; text-align: center; margin: 0 2px; }
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      background: #0077b6;
+      color: #fff;
+      padding: 10px;
+      font-size: 0.75em;
+      border-radius: 8px;
+    }
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab {
+      cursor: pointer;
+      padding: 7px 14px;
+      background: #0077b6;
+      color: white;
+      border-radius: 8px;
+      font-size: 0.85em;
+      flex: 1;
+      text-align: center;
+      margin: 0 2px;
+    }
     .tab.active { background: #00b4d8; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .stats-row { display: flex; justify-content: space-between; background: #e0f7fa; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.8em; gap: 10px; }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      background: #e0f7fa;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.8em;
+      gap: 10px;
+    }
     .stat-item { text-align: center; flex: 1; }
-    .list-item { background: #f8fafc; border-radius: 12px; padding: 10px; margin-bottom: 10px; border: 1px solid #e2e8f0; font-size: 0.8em; }
-    .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-    .badge { background: #90e0ef; padding: 2px 8px; border-radius: 20px; font-size: 0.7em; }
+    .list-item {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #e2e8f0;
+      font-size: 0.8em;
+    }
+    .flex-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .badge {
+      background: #90e0ef;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.7em;
+    }
     .text-muted { color: #666; font-size: 0.7em; }
     hr { margin: 10px 0; }
-    .due-card { background: #fff3e0; border-left: 4px solid #f4a261; padding: 8px; margin-bottom: 8px; border-radius: 8px; }
+    .due-card {
+      background: #fff3e0;
+      border-left: 4px solid #f4a261;
+      padding: 8px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+    }
     @media (max-width: 600px) {
       .container { width: 90%; padding: 10px; }
       input, select { width: 100%; }
       .tab { padding: 5px 9px; font-size: 0.8em; }
       button { padding: 8px; }
     }
-    .password-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .password-card { background: white; border-radius: 20px; padding: 20px; width: 80%; max-width: 280px; text-align: center; }
+    .password-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .password-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      width: 80%;
+      max-width: 280px;
+      text-align: center;
+    }
     .password-card input { width: 100%; margin: 10px 0; }
     .error-msg { color: red; font-size: 0.75em; }
-    .sync-status { font-size: 0.7em; text-align: center; margin-bottom: 8px; color: green; }
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 2000; }
-    .modal-content { background: white; padding: 20px; border-radius: 15px; width: 80%; max-width: 350px; }
-    .modal-content input { width: 100%; margin: 10px 0; }
-    .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
-    .modal-buttons button { margin-top: 0; }
-    .disabled-btn { opacity: 0.6; pointer-events: none; }
+    .sync-status {
+      font-size: 0.7em;
+      text-align: center;
+      margin-bottom: 8px;
+      color: green;
+    }
+    .modal {
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      z-index: 2000;
+    }
+    .modal-content {
+      background: white; border-radius: 24px; padding: 25px; width: 90%; max-width: 450px;
+    }
+    .modal-content input, .modal-content select { width: 100%; margin: 10px 0; padding: 10px; border-radius: 12px; border:1px solid #ccc; }
+    .flex-btns { display: flex; gap: 12px; margin-top: 15px; justify-content: flex-end; }
   </style>
 </head>
 <body>
@@ -76,6 +226,10 @@
   <div class="container">
     <div class="sync-status" id="syncStatus">🔄 Syncing...</div>
     <h1>Vsquar</h1>
+    <!-- Transaction Manager Link (opens in new tab) -->
+    <div style="text-align: right; margin-bottom: 10px;">
+      <button id="openTransactionsBtn" class="small-btn" style="background: #2a9d8f; width: auto;">📋 Detailed Transaction Manager</button>
+    </div>
     <div class="tabs">
       <div class="tab active" data-tab="dashboard">Dashboard</div>
       <div class="tab" data-tab="customers">Customers</div>
@@ -138,7 +292,7 @@
       <div id="loanList"></div>
     </div>
 
-    <!-- Transactions (with Remark) -->
+    <!-- Transactions (simplified, but keep for quick add) -->
     <div id="transactions" class="tab-content">
       <label>Select Loan</label><select id="txnLoanId"></select>
       <label>Date</label><input type="date" id="txnDate">
@@ -173,7 +327,6 @@
       <button id="resetAllBtn" style="background:#dc3545;">⚠️ Full Reset</button>
     </div>
 
-    <button id="moreDetailsBtn" class="more-details-btn">📄 More Details</button>
     <div class="footer">Vsquar · Equal Partners · Cloud Sync</div>
   </div>
 </div>
@@ -245,7 +398,7 @@
   function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
   function totalOutstanding() { let out=0; loans.forEach(l=>out+=recomputePrincipal(l)); return out; }
 
-  // Add transaction with remark
+  // Add transaction (admin only)
   function addTransaction(loanId, date, amount, remark) {
     if(currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
     const loan = getLoan(loanId);
@@ -256,7 +409,6 @@
     let interestPortion = 0, principalPortion = 0;
     
     if(loan.method === 4) { // Weekly EMI - no interest
-      // validate amount equals weekly installment or remaining balance
       const weeklyAmt = loan.weeklyAmount;
       if(amount !== weeklyAmt && amount !== outstanding) {
         return { success: false, msg: `Weekly EMI must be ₹${weeklyAmt} or full balance ₹${outstanding} to close` };
@@ -290,7 +442,6 @@
         else { interestPortion = interestDue; principalPortion = amount - interestDue; if(principalPortion > outstanding) principalPortion = outstanding; }
       }
     }
-    
     const newTxn = { id: Date.now()+Math.random(), loanId: loan.id, date, amount, interestPortion, principalPortion, remark: remark || "", timestamp: new Date().toISOString() };
     transactions.push(newTxn);
     cashCapital += amount;
@@ -311,41 +462,11 @@
     } else if(method === 4) {
       weeklyAmt = weeklyAmount;
       if(!weeklyAmt || weeklyAmt <=0) return false;
-      tenure = tenure; // number of weeks
+      tenure = tenure;
     }
     const newLoan = { id: Date.now(), customerId: custId, principalAmount: amount, interestRate: rate, method, status: 'active', startDate, emiAmount: emi, tenure: tenure || null, weeklyAmount: weeklyAmt };
     loans.push(newLoan);
     cashCapital -= amount;
-    saveAll();
-    return true;
-  }
-
-  function deleteLoan(loanId) {
-    const loan = getLoan(loanId);
-    if(!loan) return false;
-    if(transactions.some(t=>t.loanId===loanId)) return false; // has transactions
-    loans = loans.filter(l=>l.id!==loanId);
-    saveAll();
-    return true;
-  }
-  function editLoan(loanId, newAmount, newRate, newStartDate, newTenure, newWeeklyAmt) {
-    const loan = getLoan(loanId);
-    if(!loan) return false;
-    if(transactions.some(t=>t.loanId===loanId)) return false;
-    const oldAmount = loan.principalAmount;
-    loan.principalAmount = newAmount;
-    loan.interestRate = newRate;
-    loan.startDate = newStartDate;
-    if(loan.method === 3) {
-      const r = newRate/100;
-      loan.emiAmount = Math.round(newAmount * r * Math.pow(1+r, newTenure) / (Math.pow(1+r, newTenure)-1));
-      loan.tenure = newTenure;
-    } else if(loan.method === 4) {
-      loan.weeklyAmount = newWeeklyAmt;
-      loan.tenure = newTenure;
-    }
-    // adjust cashCapital: difference in principal
-    cashCapital += (oldAmount - newAmount);
     saveAll();
     return true;
   }
@@ -391,7 +512,7 @@
     return false;
   }
 
-  // UI Rendering
+  // UI Rendering (similar to before, without PDF)
   function renderCustomers() {
     const container = document.getElementById('customerList');
     if(!container) return;
@@ -412,32 +533,15 @@
       else if(loan.method===3) methodDesc=`Monthly EMI ₹${loan.emiAmount}`;
       else methodDesc=`Weekly EMI ₹${loan.weeklyAmount} × ${loan.tenure} weeks`;
       const hasTxns = transactions.some(t=>t.loanId===loan.id);
-      const editDeleteDisabled = hasTxns ? ' (has payments)' : '';
       return `<div class="list-item" data-loan-id="${loan.id}">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${loan.startDate} | ${methodDesc}</div>
         <div>Outstanding: ₹${out} | ${loan.status==='closed'?'Closed':'Active'}</div>
         <div>
-          <button class="small-btn edit-loan" data-id="${loan.id}" ${hasTxns?'disabled title="Cannot edit loan with payments"':''}>✏️ Edit</button>
-          <button class="small-btn danger delete-loan" data-id="${loan.id}" ${hasTxns?'disabled title="Cannot delete loan with payments"':''}>🗑 Delete</button>
-          <button class="small-btn warning close-loan" data-id="${loan.id}">🔒 Close Loan</button>
+          <button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button>
         </div>
       </div>`;
     }).join('');
-    // Edit loan modal
-    document.querySelectorAll('.edit-loan').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        const id = parseInt(btn.getAttribute('data-id'));
-        showEditLoanModal(id);
-      });
-    });
-    // Delete with 5-second cooldown
-    document.querySelectorAll('.delete-loan').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        const id = parseInt(btn.getAttribute('data-id'));
-        showDeleteConfirmModal(id);
-      });
-    });
     document.querySelectorAll('.close-loan').forEach(btn=>{
       btn.addEventListener('click', (e)=>{
         const id = parseInt(btn.getAttribute('data-id'));
@@ -446,61 +550,6 @@
     });
     const txnLoan = document.getElementById('txnLoanId');
     if(txnLoan && currentRole==="admin") txnLoan.innerHTML = '<option value="">-- select loan --</option>'+loans.map(l=>`<option value="${l.id}">${getCustomer(l.customerId)?.name||'N/A'} - ₹${l.principalAmount}</option>`).join('');
-  }
-  function showEditLoanModal(loanId) {
-    const loan = getLoan(loanId);
-    if(!loan) return;
-    const newAmount = prompt("New loan amount (₹)", loan.principalAmount);
-    if(newAmount===null) return;
-    const newRate = prompt("Monthly interest rate (%)", loan.interestRate);
-    if(newRate===null) return;
-    const newStartDate = prompt("Start date (YYYY-MM-DD)", loan.startDate);
-    if(newStartDate===null) return;
-    let newTenure = loan.tenure;
-    let newWeeklyAmt = loan.weeklyAmount;
-    if(loan.method===3 || loan.method===4) {
-      newTenure = parseInt(prompt(`Number of ${loan.method===3?'months':'weeks'}`, loan.tenure));
-      if(isNaN(newTenure)) return;
-      if(loan.method===4) {
-        newWeeklyAmt = parseFloat(prompt("Weekly installment amount (₹)", loan.weeklyAmount));
-        if(isNaN(newWeeklyAmt)) return;
-      }
-    }
-    if(editLoan(loanId, parseFloat(newAmount), parseFloat(newRate), newStartDate, newTenure, newWeeklyAmt)) {
-      renderAll();
-      alert("Loan updated");
-    } else alert("Cannot edit loan with existing transactions");
-  }
-  function showDeleteConfirmModal(loanId) {
-    const modalDiv = document.createElement('div');
-    modalDiv.className = 'modal';
-    modalDiv.innerHTML = `<div class="modal-content">
-      <h3>⚠️ Delete Loan</h3>
-      <p>Are you sure? This action is permanent.</p>
-      <div class="modal-buttons">
-        <button id="deleteYesBtn" class="small-btn danger" disabled>Yes (5 sec)</button>
-        <button id="deleteNoBtn" class="small-btn">No</button>
-      </div>
-    </div>`;
-    document.body.appendChild(modalDiv);
-    let seconds = 5;
-    const yesBtn = modalDiv.querySelector('#deleteYesBtn');
-    const countdown = setInterval(()=>{
-      seconds--;
-      if(seconds<=0) {
-        clearInterval(countdown);
-        yesBtn.disabled = false;
-        yesBtn.innerText = "Yes";
-      } else {
-        yesBtn.innerText = `Yes (${seconds}s)`;
-      }
-    },1000);
-    yesBtn.onclick = ()=>{
-      if(deleteLoan(loanId)) { renderAll(); alert("Loan deleted"); }
-      else alert("Cannot delete loan with payments");
-      modalDiv.remove();
-    };
-    modalDiv.querySelector('#deleteNoBtn').onclick = ()=>{ modalDiv.remove(); clearInterval(countdown); };
   }
   function showCloseLoanModal(loanId) {
     const loan = getLoan(loanId);
@@ -518,26 +567,21 @@
     modalDiv.innerHTML = `<div class="modal-content">
       <h3>Close Loan</h3>
       <p>Outstanding principal: ₹${remaining.toFixed(2)}</p>
-      <label>Closing Amount (₹)</label>
-      <input type="number" id="closeAmount" placeholder="Enter exact amount">
-      <label>Closing Date</label>
-      <input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}">
-      <div class="modal-buttons">
-        <button id="closeConfirmBtn">Confirm Close</button>
-        <button id="closeCancelBtn">Cancel</button>
-      </div>
+      <label>Closing Amount (₹)</label><input type="number" id="closeAmount" placeholder="Enter exact amount">
+      <label>Closing Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}">
+      <div class="flex-btns"><button id="closeConfirmBtn">Confirm Close</button><button id="closeCancelBtn">Cancel</button></div>
     </div>`;
     document.body.appendChild(modalDiv);
     modalDiv.querySelector('#closeConfirmBtn').onclick = ()=>{
       const closeAmount = parseFloat(modalDiv.querySelector('#closeAmount').value);
       const closeDate = modalDiv.querySelector('#closeDate').value;
-      if(isNaN(closeAmount) || closeAmount <=0) { alert("Enter valid amount"); return; }
+      if(isNaN(closeAmount) || closeAmount<=0) { alert("Valid amount"); return; }
       if(Math.abs(closeAmount - remaining) > 0.01) { alert(`Amount must equal outstanding ₹${remaining.toFixed(2)}`); return; }
       if(closeLoanWithAmount(loanId, closeAmount, closeDate)) {
         renderAll();
-        alert("Loan closed successfully");
+        alert("Loan closed");
         modalDiv.remove();
-      } else alert("Failed to close loan");
+      } else alert("Failed");
     };
     modalDiv.querySelector('#closeCancelBtn').onclick = ()=> modalDiv.remove();
   }
@@ -551,10 +595,7 @@
       let actionBtns = '';
       if(currentRole==="admin") {
         actionBtns = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button>
-          <button class="small-btn delete-txn" data-id="${txn.id}">Delete</button>
-          <button class="small-btn pdf-txn" data-id="${txn.id}">PDF</button></div>`;
-      } else {
-        actionBtns = `<div><button class="small-btn pdf-txn" data-id="${txn.id}">PDF</button></div>`;
+          <button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>`;
       }
       return `<div class="list-item">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${txn.date}</span></div>
@@ -586,47 +627,7 @@
         });
       });
     }
-    document.querySelectorAll('.pdf-txn').forEach(btn=>{
-      btn.addEventListener('click',(e)=>{
-        const id = parseInt(btn.getAttribute('data-id'));
-        const txn = transactions.find(t=>t.id===id);
-        if(txn) generatePDFReceipt(txn);
-      });
-    });
   }
-  function generatePDFReceipt(txn) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const loan = getLoan(txn.loanId);
-    if(!loan) return;
-    const customer = getCustomer(loan.customerId);
-    const customerName = customer ? customer.name : "Unknown";
-    const allTxns = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
-    let cumPrincipal = 0;
-    for(let t of allTxns) {
-      if(t.principalPortion) cumPrincipal += t.principalPortion;
-      if(t.id === txn.id) break;
-    }
-    let balanceAfter = loan.principalAmount - cumPrincipal;
-    if(txn.principalPortion) balanceAfter -= txn.principalPortion;
-    if(balanceAfter<0) balanceAfter=0;
-    doc.setFontSize(18);
-    doc.setTextColor(0,119,182);
-    doc.text("Receipt", 105,20,{align:"center"});
-    doc.autoTable({
-      startY:30, head:[["Description","Details"]],
-      body: [
-        ["Receipt ID", txn.id], ["Customer", customerName], ["Loan Amount", `₹${loan.principalAmount.toFixed(2)}`],
-        ["Payment Date", formatDateShort(txn.date)], ["Amount", `₹${txn.amount.toFixed(2)}`],
-        ["Interest", `₹${(txn.interestPortion||0).toFixed(2)}`], ["Principal", `₹${(txn.principalPortion||0).toFixed(2)}`],
-        ["Remaining Balance", `₹${balanceAfter.toFixed(2)}`], ["Remark", txn.remark||""]
-      ],
-      theme:"striped", headStyles:{fillColor:[0,119,182],textColor:[255,255,255],fontSize:10}, bodyStyles:{fontSize:10}, margin:{left:15,right:15}
-    });
-    doc.save(`Receipt_${txn.id}.pdf`);
-  }
-  function formatDateShort(iso){ if(!iso) return ""; const d=new Date(iso); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`; }
-  function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
   function renderDashboard() {
     document.getElementById('dashCustomers').innerText = customers.length;
     document.getElementById('dashActiveLoans').innerText = loans.filter(l=>l.status!=='closed').length;
@@ -635,7 +636,7 @@
     document.getElementById('dashProfit').innerText = profit.toFixed(2);
     document.getElementById('dashCapital').innerText = cashCapital.toFixed(2);
     document.getElementById('dashPartnerProfit').innerText = (profit/2).toFixed(2);
-    // due alerts simplified
+    // due alerts
     const alerts = [];
     const today = new Date();
     const nextWeek = new Date(); nextWeek.setDate(today.getDate()+7);
@@ -665,11 +666,15 @@
     document.getElementById('reportOutstanding').innerHTML = `₹${totalOutstanding().toFixed(2)}`;
     document.getElementById('reportRecovered').innerHTML = `₹${totalPrincipalRecovered().toFixed(2)}`;
   }
-  function renderAll() { renderCustomers(); renderLoans(); renderTransactions(); renderDashboard(); renderReports(); if(currentRole==="viewer") document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>{ if(!el.classList.contains('pdf-txn')&&!el.classList.contains('tab')) el.disabled=true; }); else document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>el.disabled=false); }
+  function renderAll() { renderCustomers(); renderLoans(); renderTransactions(); renderDashboard(); renderReports(); if(currentRole==="viewer") document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>{ if(!el.classList.contains('tab')) el.disabled=true; }); else document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>el.disabled=false); }
+  function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
 
   // Event handlers
   function initEvents() {
-    document.getElementById('moreDetailsBtn')?.addEventListener('click',()=>window.open('details.html','_blank'));
+    document.getElementById('openTransactionsBtn')?.addEventListener('click', () => {
+      const roleParam = currentRole === 'admin' ? 'admin' : 'viewer';
+      window.open(`transactions.html?role=${roleParam}`, '_blank');
+    });
     document.getElementById('addCustomerBtn')?.addEventListener('click',()=>{
       if(currentRole!=="admin") return;
       const name = document.getElementById('custName').value.trim();
@@ -748,14 +753,17 @@
       });
     });
   }
+
+  // Auth
   async function unlockApp() {
     const pwd = document.getElementById('passwordInput').value;
     if(pwd==='9947') { currentRole="admin"; await proceed(); }
     else if(pwd==='4250') { currentRole="viewer"; await proceed(); }
     else if(pwd==='0000') {
       document.getElementById('passwordModal').style.display='none';
-      document.getElementById('fakeTimeDisplay').style.display='block';
-      document.getElementById('fakeTimeDisplay').innerHTML = `<div style="background:white;padding:30px;border-radius:20px;width:80%;margin:auto;"><h2>System Time</h2><p>${new Date().toLocaleString()}</p><button onclick="location.reload()">Back</button></div>`;
+      const fakeDiv = document.getElementById('fakeTimeDisplay');
+      fakeDiv.style.display='block';
+      fakeDiv.innerHTML = `<div style="background:white;padding:30px;border-radius:20px;width:80%;margin:auto;"><h2>System Time</h2><p>${new Date().toLocaleString()}</p><button onclick="location.reload()">Back</button></div>`;
     } else document.getElementById('pwdError').innerText='Wrong password';
   }
   async function proceed() {
