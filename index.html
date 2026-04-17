@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Vsquar · Cloud Loan Manager</title>
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <!-- PDF library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      max-width: 100%;
+      width: 85%;
+      margin: 20px auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #0077b6;
+      font-size: 1.7em;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+      font-size: 0.85em;
+    }
+    input, select {
+      width: 40%;
+      padding: 8px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 0.85em;
+    }
+    .output {
+      background: #e0f7fa;
+      padding: 10px;
+      margin-top: 15px;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 0.85em;
+    }
+    .output span {
+      color: red;
+      font-weight: bold;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #00b4d8;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      font-size: 0.85em;
+    }
+    button.small-btn {
+      width: auto;
+      padding: 5px 10px;
+      margin: 0 3px;
+      display: inline-block;
+      font-size: 0.7em;
+    }
+    .more-details-btn {
+      background: #2a9d8f;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      font-size: 0.75em;
+      overflow-x: auto;
+      display: block;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 5px;
+      text-align: center;
+    }
+    th {
+      background: #90e0ef;
+    }
+    tr:nth-child(even) {
+      background: #f1f1f1;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      background: #0077b6;
+      color: #fff;
+      padding: 10px;
+      font-size: 0.75em;
+      border-radius: 8px;
+    }
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab {
+      cursor: pointer;
+      padding: 7px 14px;
+      background: #0077b6;
+      color: white;
+      border-radius: 8px;
+      font-size: 0.85em;
+      flex: 1;
+      text-align: center;
+      margin: 0 2px;
+    }
+    .tab.active {
+      background: #00b4d8;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      background: #e0f7fa;
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-size: 0.8em;
+      gap: 10px;
+    }
+    .stat-item {
+      text-align: center;
+      flex: 1;
+    }
+    .list-item {
+      background: #f8fafc;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #e2e8f0;
+      font-size: 0.8em;
+    }
+    .flex-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .badge {
+      background: #90e0ef;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.7em;
+    }
+    .text-muted {
+      color: #666;
+      font-size: 0.7em;
+    }
+    hr {
+      margin: 10px 0;
+    }
+    .due-card {
+      background: #fff3e0;
+      border-left: 4px solid #f4a261;
+      padding: 8px;
+      margin-bottom: 8px;
+      border-radius: 8px;
+    }
+    @media (max-width: 600px) {
+      .container {
+        width: 90%;
+        padding: 10px;
+      }
+      input, select {
+        width: 100%;
+      }
+      .tab {
+        padding: 5px 9px;
+        font-size: 0.8em;
+      }
+      button {
+        padding: 8px;
+      }
+    }
+    .password-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .password-card {
+      background: white;
+      border-radius: 20px;
+      padding: 20px;
+      width: 80%;
+      max-width: 280px;
+      text-align: center;
+    }
+    .password-card input {
+      width: 100%;
+      margin: 10px 0;
+    }
+    .error-msg {
+      color: red;
+      font-size: 0.75em;
+    }
+    .sync-status {
+      font-size: 0.7em;
+      text-align: center;
+      margin-bottom: 8px;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+<div id="passwordModal" class="password-overlay">
+  <div class="password-card">
+    <h2>🔐 Vsquar Access</h2>
+    <p>Enter password</p>
+    <input type="password" id="passwordInput" placeholder="Password">
+    <button id="unlockBtn">Unlock</button>
+    <div id="pwdError" class="error-msg"></div>
+  </div>
+</div>
+
+<div id="fakeTimeDisplay" style="display:none; text-align:center; margin-top:50px; font-size:2em; font-family:monospace;"></div>
+
+<div id="mainApp" style="display:none">
+  <div class="container">
+    <div class="sync-status" id="syncStatus">🔄 Syncing with cloud...</div>
+    <h1>Vsquar</h1>
+    <!-- More Details Button (opens details.html in same tab) -->
+    <button id="moreDetailsBtn" class="more-details-btn" style="margin-bottom: 15px;">📄 More Details</button>
+    <div class="tabs">
+      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab" data-tab="customers">Customers</div>
+      <div class="tab" data-tab="loans">Loans</div>
+      <div class="tab" data-tab="transactions">Transactions</div>
+      <div class="tab" data-tab="reports">Profit/Capital</div>
+      <div class="tab" data-tab="settings">Settings</div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="tab-content active">
+      <div class="output">
+        <strong>Cash on Hand (Capital):</strong> <span id="dashCapital">0</span><br>
+        <strong>Outstanding Principal (Loans Given):</strong> <span id="dashOutstanding">0</span><br>
+        <strong>Total Profit (Interest Earned):</strong> <span id="dashProfit">0</span><br>
+        <strong>Partner's Share (50% each):</strong> <span id="dashPartnerProfit">0</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-item">👥 Customers: <span id="dashCustomers">0</span></div>
+        <div class="stat-item">🏦 Active Loans: <span id="dashActiveLoans">0</span></div>
+      </div>
+      <div style="margin-top: 20px;">
+        <strong>📅 Upcoming Due Alerts (next 7 days)</strong>
+        <div id="dueAlertsContainer" style="margin-top: 8px;"></div>
+      </div>
+      <div style="margin-top: 20px; background:#f8f9fa; padding:10px; border-radius:10px;">
+        <label>Withdraw Capital (₹)</label>
+        <input type="number" id="withdrawAmount" placeholder="Amount to withdraw">
+        <button id="withdrawCapitalBtn">Withdraw from Cash on Hand</button>
+        <div class="text-muted">Withdrawals reduce your available cash capital.</div>
+      </div>
+    </div>
+
+    <!-- CUSTOMERS -->
+    <div id="customers" class="tab-content">
+      <label>Customer Name</label>
+      <input type="text" id="custName" placeholder="Full name">
+      <label>Phone</label>
+      <input type="text" id="custPhone" placeholder="Phone">
+      <button id="addCustomerBtn">Add Customer</button>
+      <div id="customerList"></div>
+    </div>
+
+    <!-- LOANS -->
+    <div id="loans" class="tab-content">
+      <label>Select Customer</label>
+      <select id="loanCustomerId"><option value="">-- select --</option></select>
+      <label>Loan Amount (₹)</label>
+      <input type="number" id="loanAmount" placeholder="Amount">
+      <label>Monthly Interest Rate (%)</label>
+      <input type="number" id="loanInterest" step="any" placeholder="e.g., 2.5">
+      <label>Repayment Method</label>
+      <select id="loanMethod">
+        <option value="1">1. Monthly interest only (principal at end)</option>
+        <option value="2">2. Flexible – interest first, then principal</option>
+        <option value="3">3. EMI (fixed monthly)</option>
+      </select>
+      <div id="emiFields" style="display:none; margin-top:10px">
+        <label>Tenure (months)</label>
+        <input type="number" id="loanTenure" placeholder="Months">
+      </div>
+      <button id="createLoanBtn">Create Loan</button>
+      <div id="loanList"></div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div id="transactions" class="tab-content">
+      <label>Select Loan</label>
+      <select id="txnLoanId"><option value="">-- select loan --</option></select>
+      <label>Payment Date</label>
+      <input type="date" id="txnDate">
+      <label>Amount (₹)</label>
+      <input type="number" id="txnAmount" placeholder="Repayment amount">
+      <button id="addTransactionBtn">Add Payment</button>
+      <div id="transactionList"></div>
+    </div>
+
+    <!-- REPORTS -->
+    <div id="reports" class="tab-content">
+      <div class="output">
+        <strong>Total Interest Earned (Profit):</strong> <span id="reportInterest">₹0</span><br>
+        <strong>Initial Capital (Cash):</strong> <span id="reportBaseCapital">₹0</span><br>
+        <strong>Current Cash on Hand:</strong> <span id="reportCurrentCapital">₹0</span>
+      </div>
+      <div class="stats-row">
+        <div class="stat-item">📦 Total Loans Disbursed: <span id="reportDisbursed">₹0</span></div>
+        <div class="stat-item">📊 Outstanding Principal: <span id="reportOutstanding">₹0</span></div>
+        <div class="stat-item">✅ Principal Recovered: <span id="reportRecovered">₹0</span></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS (with Capital Setting) -->
+    <div id="settings" class="tab-content">
+      <div style="margin-bottom: 20px; background:#e9ecef; padding:12px; border-radius:12px;">
+        <label>🏦 Set Initial Cash Capital (₹)</label>
+        <input type="number" id="initialCapitalInput" placeholder="Enter amount">
+        <button id="setCapitalBtn">Set Capital</button>
+        <div class="text-muted">This is the cash you have available to lend.</div>
+      </div>
+      <hr>
+      <button id="resetAllBtn" style="background:#dc3545;">⚠️ Full Reset (Delete All Data)</button>
+      <div class="text-muted">Erases customers, loans, transactions, and resets capital to 0.</div>
+      <hr>
+      <div><strong>Role:</strong> <span id="roleDisplay"></span></div>
+      <div class="text-muted">Admin (9947): full control | Viewer (4250): view only, PDF | Fake (0000): time only</div>
+    </div>
+
+    <div class="footer">Vsquar · Equal Partners · Cloud Sync</div>
+  </div>
+</div>
+
+<script>
+  // -------------------- FIREBASE CONFIG (FULL) --------------------
+  const firebaseConfig = {
+    apiKey: "AIzaSyCCjWVI1hB3sbu0JiA4viW1BK81xbMML-U",
+    authDomain: "csl-calculations.firebaseapp.com",
+    projectId: "csl-calculations",
+    storageBucket: "csl-calculations.firebasestorage.app",
+    messagingSenderId: "887219643486",
+    appId: "1:887219643486:web:0cb001f2c72039a00240cf"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const COLLECTION = "VSQURE";
+  const DOC_ID = "appData";
+
+  // -------------------- DATA STATE --------------------
+  let customers = [];
+  let loans = [];
+  let transactions = [];
+  let cashCapital = 0;        // cash on hand
+  let currentRole = "";
+  let syncInProgress = false;
+
+  // Helper: save entire state to Firestore (only if admin, after changes)
+  async function syncToFirebase() {
+    if (currentRole !== "admin") return;
+    if (syncInProgress) return;
+    syncInProgress = true;
+    try {
+      const data = {
+        customers: customers,
+        loans: loans,
+        transactions: transactions,
+        cashCapital: cashCapital,
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection(COLLECTION).doc(DOC_ID).set(data);
+      document.getElementById('syncStatus').innerHTML = "✅ Synced to cloud";
+      setTimeout(() => {
+        if (document.getElementById('syncStatus')) 
+          document.getElementById('syncStatus').innerHTML = "☁️ Cloud sync active";
+      }, 2000);
+    } catch (e) {
+      console.error("Firestore sync error", e);
+      document.getElementById('syncStatus').innerHTML = "⚠️ Sync failed, retrying...";
+    } finally {
+      syncInProgress = false;
+    }
+  }
+
+  // Load data from Firestore, fallback to localStorage
+  async function loadDataFromFirebase() {
+    try {
+      const docSnap = await db.collection(COLLECTION).doc(DOC_ID).get();
+      if (docSnap.exists) {
+        const data = docSnap.data();
+        customers = data.customers || [];
+        loans = data.loans || [];
+        transactions = data.transactions || [];
+        cashCapital = data.cashCapital || 0;
+        localStorage.setItem('vsquar_customers', JSON.stringify(customers));
+        localStorage.setItem('vsquar_loans', JSON.stringify(loans));
+        localStorage.setItem('vsquar_transactions', JSON.stringify(transactions));
+        localStorage.setItem('vsquar_cashCapital', cashCapital);
+        document.getElementById('syncStatus').innerHTML = "✅ Loaded from cloud";
+        setTimeout(() => {
+          if (document.getElementById('syncStatus')) 
+            document.getElementById('syncStatus').innerHTML = "☁️ Cloud sync active";
+        }, 1500);
+        return true;
+      } else {
+        loadLocalBackup();
+        if (currentRole === "admin") await syncToFirebase();
+        return true;
+      }
+    } catch (e) {
+      console.warn("Firebase read error, using local", e);
+      loadLocalBackup();
+      return false;
+    }
+  }
+
+  function loadLocalBackup() {
+    const c = localStorage.getItem('vsquar_customers');
+    const l = localStorage.getItem('vsquar_loans');
+    const t = localStorage.getItem('vsquar_transactions');
+    const cap = localStorage.getItem('vsquar_cashCapital');
+    if(c) customers = JSON.parse(c);
+    if(l) loans = JSON.parse(l);
+    if(t) transactions = JSON.parse(t);
+    if(cap) cashCapital = parseFloat(cap);
+    if(isNaN(cashCapital)) cashCapital = 0;
+  }
+
+  function saveAll() {
+    if (currentRole !== "admin") return;
+    localStorage.setItem('vsquar_customers', JSON.stringify(customers));
+    localStorage.setItem('vsquar_loans', JSON.stringify(loans));
+    localStorage.setItem('vsquar_transactions', JSON.stringify(transactions));
+    localStorage.setItem('vsquar_cashCapital', cashCapital);
+    syncToFirebase();
+  }
+
+  function getLoan(id) { return loans.find(l => l.id == id); }
+  function getCustomer(id) { return customers.find(c => c.id == id); }
+
+  function recomputePrincipal(loan) {
+    if(loan.method === 1) {
+      return loan.status === 'closed' ? 0 : loan.principalAmount;
+    } else {
+      let remaining = loan.principalAmount;
+      const txns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+      for(let t of txns) {
+        if(t.principalPortion) remaining -= t.principalPortion;
+      }
+      return remaining < 0 ? 0 : remaining;
+    }
+  }
+
+  function totalInterestEarned() {
+    return transactions.reduce((sum,t)=> sum + (t.interestPortion||0), 0);
+  }
+  function totalPrincipalRecovered() {
+    return transactions.reduce((sum,t)=> sum + (t.principalPortion||0), 0);
+  }
+  function totalDisbursed() {
+    return loans.reduce((sum,l)=> sum + l.principalAmount, 0);
+  }
+  function totalOutstandingPrincipal() {
+    let out = 0;
+    loans.forEach(l => out += recomputePrincipal(l));
+    return out;
+  }
+
+  // Add transaction (admin only) - CORRECTED: add FULL amount to cashCapital
+  function addTransaction(loanId, date, amount) {
+    if(currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
+    const loan = getLoan(loanId);
+    if(!loan) return { success: false, msg: "Loan not found" };
+    if(loan.status === 'closed') return { success: false, msg: "Loan closed" };
+    let outstanding = recomputePrincipal(loan);
+    if(amount <= 0) return { success: false, msg: "Amount positive required" };
+    
+    let interestPortion = 0, principalPortion = 0;
+    const monthlyRate = loan.interestRate / 100;
+    const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
+    if(loanTxns.length > 0) lastDate = new Date(loanTxns[0].date);
+    let currentDate = new Date(date);
+    if(isNaN(currentDate)) currentDate = new Date();
+    const diffDays = Math.max(1, Math.ceil((currentDate - lastDate) / (1000*60*60*24)));
+    const dailyRate = monthlyRate / 30;
+    let interestAccrued = outstanding * dailyRate * diffDays;
+    interestAccrued = parseFloat(interestAccrued.toFixed(2));
+    
+    if(loan.method === 1) {
+      interestPortion = amount;
+      principalPortion = 0;
+    } 
+    else if(loan.method === 2) {
+      if(amount <= interestAccrued) {
+        interestPortion = amount;
+        principalPortion = 0;
+      } else {
+        interestPortion = interestAccrued;
+        principalPortion = amount - interestAccrued;
+        if(principalPortion > outstanding) principalPortion = outstanding;
+      }
+    }
+    else if(loan.method === 3) {
+      const emi = loan.emiAmount;
+      if(Math.abs(amount - emi) > 0.01) return { success: false, msg: `EMI must be exactly ₹${emi}` };
+      let interestDue = outstanding * monthlyRate;
+      interestDue = parseFloat(interestDue.toFixed(2));
+      if(amount <= interestDue) {
+        interestPortion = amount;
+        principalPortion = 0;
+      } else {
+        interestPortion = interestDue;
+        principalPortion = amount - interestDue;
+        if(principalPortion > outstanding) principalPortion = outstanding;
+      }
+    }
+    
+    const newTxn = {
+      id: Date.now() + Math.random(),
+      loanId: loan.id,
+      date: date,
+      amount: amount,
+      interestPortion: interestPortion,
+      principalPortion: principalPortion,
+      timestamp: new Date().toISOString()
+    };
+    transactions.push(newTxn);
+    // FIXED: cash increases by FULL amount received (interest + principal recovery)
+    cashCapital += amount;
+    const newOut = recomputePrincipal(loan);
+    if(newOut <= 0.01 && loan.method !== 1) loan.status = 'closed';
+    saveAll();
+    return { success: true, msg: "Payment recorded", txn: newTxn };
+  }
+
+  function createLoan(custId, amount, rate, method, tenure) {
+    if(currentRole !== "admin") return false;
+    if(amount > cashCapital) return false;
+    let emi = null;
+    if(method === 3) {
+      const r = rate / 100;
+      emi = amount * r * Math.pow(1 + r, tenure) / (Math.pow(1 + r, tenure) - 1);
+      emi = Math.round(emi);
+    }
+    const newLoan = {
+      id: Date.now(),
+      customerId: custId,
+      principalAmount: amount,
+      interestRate: rate,
+      method: method,
+      status: 'active',
+      startDate: new Date().toISOString().slice(0,10),
+      emiAmount: emi
+    };
+    loans.push(newLoan);
+    cashCapital -= amount;
+    saveAll();
+    return true;
+  }
+
+  function deleteTransaction(txnId) {
+    if(currentRole !== "admin") return false;
+    const idx = transactions.findIndex(t => t.id == txnId);
+    if(idx === -1) return false;
+    const txn = transactions[idx];
+    cashCapital -= txn.amount;
+    transactions.splice(idx,1);
+    loans.forEach(loan => {
+      const remain = recomputePrincipal(loan);
+      if(remain <= 0.01 && loan.method !== 1) loan.status = 'closed';
+      else if(loan.method === 1 && remain <= 0) loan.status = 'closed';
+      else loan.status = 'active';
+    });
+    saveAll();
+    return true;
+  }
+  
+  function editTransaction(txnId, newAmount, newDate) {
+    if(currentRole !== "admin") return false;
+    const txn = transactions.find(t => t.id == txnId);
+    if(!txn) return false;
+    cashCapital -= txn.amount;
+    const idx = transactions.findIndex(t => t.id == txnId);
+    transactions.splice(idx,1);
+    const result = addTransaction(txn.loanId, newDate, newAmount);
+    if(!result.success) {
+      cashCapital += txn.amount;
+      transactions.push(txn);
+      saveAll();
+      return false;
+    }
+    saveAll();
+    return true;
+  }
+
+  function withdrawCapital(amount) {
+    if(currentRole !== "admin") return false;
+    if(isNaN(amount) || amount <= 0) return false;
+    if(amount > cashCapital) return false;
+    cashCapital -= amount;
+    saveAll();
+    return true;
+  }
+
+  function setInitialCapital(amount) {
+    if(currentRole !== "admin") return false;
+    if(isNaN(amount) || amount < 0) return false;
+    cashCapital = amount;
+    saveAll();
+    return true;
+  }
+
+  function fullReset() {
+    if(currentRole !== "admin") return;
+    if(confirm("⚠️ FULL RESET: All data will be erased from cloud and local. Cannot undo.")) {
+      customers = [];
+      loans = [];
+      transactions = [];
+      cashCapital = 0;
+      saveAll();
+      renderAll();
+      alert("All data reset.");
+    }
+  }
+
+  // PDF Receipt
+  function generatePDFReceipt(txn) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const loan = getLoan(txn.loanId);
+    if(!loan) return alert("Loan not found");
+    const customer = getCustomer(loan.customerId);
+    const customerName = customer ? customer.name : "Unknown";
+    const allLoanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    let cumulativePrincipal = 0;
+    for(let t of allLoanTxns) {
+      if(t.principalPortion) cumulativePrincipal += t.principalPortion;
+      if(t.id === txn.id) break;
+    }
+    let balanceAfter = loan.principalAmount - cumulativePrincipal;
+    if(txn.principalPortion) balanceAfter -= txn.principalPortion;
+    if(balanceAfter < 0) balanceAfter = 0;
+    
+    doc.setFontSize(18);
+    doc.setTextColor(0, 119, 182);
+    doc.text("Receipt", 105, 20, { align: "center" });
+    doc.autoTable({
+      startY: 30,
+      head: [["Description", "Details"]],
+      body: [
+        ["Receipt ID", txn.id],
+        ["Customer", customerName],
+        ["Loan Amount (₹)", loan.principalAmount.toFixed(2)],
+        ["Payment Date", formatDateShort(txn.date)],
+        ["Amount Paid (₹)", txn.amount.toFixed(2)],
+        ["Interest Portion (₹)", (txn.interestPortion || 0).toFixed(2)],
+        ["Principal Portion (₹)", (txn.principalPortion || 0).toFixed(2)],
+        ["Remaining Balance (₹)", balanceAfter.toFixed(2)]
+      ],
+      theme: "striped",
+      headStyles: { fillColor: [0,119,182], textColor: [255,255,255], fontSize: 10 },
+      bodyStyles: { fontSize: 10 },
+      margin: { left: 15, right: 15 }
+    });
+    doc.save(`Receipt_${txn.id}.pdf`);
+  }
+  
+  function formatDateShort(isoDate) {
+    if(!isoDate) return "";
+    const d = new Date(isoDate);
+    return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+  }
+
+  // Due alerts
+  function getDueAlerts() {
+    const alerts = [];
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+    for(let loan of loans) {
+      if(loan.status === 'closed') continue;
+      const out = recomputePrincipal(loan);
+      if(out <= 0) continue;
+      const lastTxn = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+      let lastDate = loan.startDate ? new Date(loan.startDate) : today;
+      if(lastTxn) lastDate = new Date(lastTxn.date);
+      let nextDueDate = new Date(lastDate);
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      if(nextDueDate >= today && nextDueDate <= nextWeek) {
+        let amountDue = "";
+        if(loan.method === 1) {
+          const monthlyInterest = out * (loan.interestRate/100);
+          amountDue = `Interest ₹${monthlyInterest.toFixed(2)}`;
+        } else if(loan.method === 3 && loan.emiAmount) {
+          amountDue = `EMI ₹${loan.emiAmount}`;
+        } else {
+          amountDue = "Flexible payment";
+        }
+        alerts.push({
+          customer: getCustomer(loan.customerId)?.name || "Unknown",
+          dueDate: nextDueDate.toISOString().slice(0,10),
+          amount: amountDue
+        });
+      }
+    }
+    return alerts;
+  }
+
+  function renderDueAlerts() {
+    const container = document.getElementById('dueAlertsContainer');
+    if(!container) return;
+    const alerts = getDueAlerts();
+    if(alerts.length === 0) {
+      container.innerHTML = '<div class="text-muted">No upcoming dues in next 7 days.</div>';
+      return;
+    }
+    container.innerHTML = alerts.map(a => `<div class="due-card"><strong>${escapeHtml(a.customer)}</strong> | Due: ${a.dueDate} | ${a.amount}</div>`).join('');
+  }
+
+  // UI Rendering
+  function renderCustomers() {
+    const container = document.getElementById('customerList');
+    if(!container) return;
+    if(customers.length === 0) { container.innerHTML = '<div class="text-muted">No customers</div>'; return; }
+    container.innerHTML = customers.map(c => `<div class="list-item"><div class="flex-row"><strong>${escapeHtml(c.name)}</strong><span class="badge">${c.phone||''}</span></div></div>`).join('');
+    const loanCust = document.getElementById('loanCustomerId');
+    if(loanCust && currentRole === "admin") {
+      loanCust.innerHTML = '<option value="">-- select customer --</option>' + customers.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    }
+  }
+  
+  function renderLoans() {
+    const container = document.getElementById('loanList');
+    if(!container) return;
+    if(loans.length === 0) { container.innerHTML = '<div class="text-muted">No loans</div>'; return; }
+    container.innerHTML = loans.map(loan => {
+      const cust = getCustomer(loan.customerId);
+      const out = recomputePrincipal(loan);
+      let closeBtn = (currentRole === "admin") ? `<button class="small-btn" data-close="${loan.id}">Close Loan</button>` : '';
+      return `<div class="list-item">
+        <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">₹${loan.principalAmount}</span></div>
+        <div>Rate: ${loan.interestRate}% | Method: ${loan.method==1?'Interest only':loan.method==2?'Flexible':'EMI'}</div>
+        <div>Outstanding: ₹${out} | ${loan.status==='closed'?'Closed':'Active'}</div>
+        ${closeBtn}
+      </div>`;
+    }).join('');
+    if(currentRole === "admin") {
+      document.querySelectorAll('[data-close]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const loanId = parseInt(btn.getAttribute('data-close'));
+          closeLoan(loanId);
+        });
+      });
+    }
+    const txnLoan = document.getElementById('txnLoanId');
+    if(txnLoan && currentRole === "admin") {
+      txnLoan.innerHTML = '<option value="">-- select loan --</option>' + loans.map(l => `<option value="${l.id}">${getCustomer(l.customerId)?.name || 'N/A'} - ₹${l.principalAmount}</option>`).join('');
+    }
+  }
+  
+  function closeLoan(loanId) {
+    if(currentRole !== "admin") return;
+    const loan = getLoan(loanId);
+    if(!loan) return;
+    if(loan.status === 'closed') return alert('Already closed');
+    const remaining = recomputePrincipal(loan);
+    if(remaining <= 0.01) {
+      loan.status = 'closed';
+      saveAll();
+      renderAll();
+      alert('Loan closed');
+      return;
+    }
+    if(confirm(`Outstanding ₹${remaining}. Record final repayment?`)) {
+      const today = new Date().toISOString().slice(0,10);
+      const res = addTransaction(loanId, today, remaining);
+      if(res.success) {
+        loan.status = 'closed';
+        saveAll();
+        renderAll();
+        alert('Loan fully closed');
+      } else alert(res.msg);
+    }
+  }
+  
+  function renderTransactions() {
+    const container = document.getElementById('transactionList');
+    if(!container) return;
+    if(transactions.length === 0) { container.innerHTML = '<div class="text-muted">No transactions</div>'; return; }
+    container.innerHTML = transactions.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(txn => {
+      const loan = getLoan(txn.loanId);
+      const cust = loan ? getCustomer(loan.customerId) : null;
+      let actionButtons = '';
+      if(currentRole === "admin") {
+        actionButtons = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button>
+          <button class="small-btn delete-txn" data-id="${txn.id}">Delete</button>
+          <button class="small-btn pdf-txn" data-id="${txn.id}">PDF</button></div>`;
+      } else {
+        actionButtons = `<div><button class="small-btn pdf-txn" data-id="${txn.id}">PDF</button></div>`;
+      }
+      return `<div class="list-item">
+        <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${txn.date}</span></div>
+        <div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div>
+        ${actionButtons}
+      </div>`;
+    }).join('');
+    if(currentRole === "admin") {
+      document.querySelectorAll('.edit-txn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = parseInt(btn.getAttribute('data-id'));
+          editTxnUI(id);
+        });
+      });
+      document.querySelectorAll('.delete-txn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = parseInt(btn.getAttribute('data-id'));
+          if(confirm('Delete transaction?')) {
+            deleteTransaction(id);
+            renderAll();
+          }
+        });
+      });
+    }
+    document.querySelectorAll('.pdf-txn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = parseInt(btn.getAttribute('data-id'));
+        const txn = transactions.find(t => t.id === id);
+        if(txn) generatePDFReceipt(txn);
+      });
+    });
+  }
+  
+  function editTxnUI(txnId) {
+    const txn = transactions.find(t => t.id == txnId);
+    if(!txn) return;
+    const newAmt = prompt('New amount', txn.amount);
+    if(newAmt === null) return;
+    const newDate = prompt('New date (YYYY-MM-DD)', txn.date);
+    if(newDate === null) return;
+    const success = editTransaction(txnId, parseFloat(newAmt), newDate);
+    if(success) { renderAll(); alert('Updated'); }
+    else alert('Edit failed');
+  }
+  
+  function renderDashboard() {
+    document.getElementById('dashCustomers').innerText = customers.length;
+    const activeLoans = loans.filter(l => l.status !== 'closed').length;
+    document.getElementById('dashActiveLoans').innerText = activeLoans;
+    document.getElementById('dashOutstanding').innerText = totalOutstandingPrincipal().toFixed(2);
+    const profit = totalInterestEarned();
+    document.getElementById('dashProfit').innerText = profit.toFixed(2);
+    document.getElementById('dashCapital').innerText = cashCapital.toFixed(2);
+    document.getElementById('dashPartnerProfit').innerText = (profit / 2).toFixed(2);
+    renderDueAlerts();
+  }
+  
+  function renderReports() {
+    document.getElementById('reportInterest').innerText = `₹${totalInterestEarned().toFixed(2)}`;
+    const initialCapital = cashCapital - totalInterestEarned();
+    document.getElementById('reportBaseCapital').innerText = `₹${initialCapital >=0 ? initialCapital.toFixed(2) : "0.00"}`;
+    document.getElementById('reportCurrentCapital').innerText = `₹${cashCapital.toFixed(2)}`;
+    document.getElementById('reportDisbursed').innerText = `₹${totalDisbursed().toFixed(2)}`;
+    document.getElementById('reportOutstanding').innerText = `₹${totalOutstandingPrincipal().toFixed(2)}`;
+    document.getElementById('reportRecovered').innerText = `₹${totalPrincipalRecovered().toFixed(2)}`;
+  }
+  
+  function renderAll() {
+    renderCustomers();
+    renderLoans();
+    renderTransactions();
+    renderDashboard();
+    renderReports();
+    document.getElementById('roleDisplay').innerText = currentRole === "admin" ? "Admin (full access)" : "Viewer (read only)";
+    if(currentRole === "viewer") {
+      const allInputs = document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button');
+      allInputs.forEach(el => {
+        if(!el.classList.contains('pdf-txn') && !el.classList.contains('tab') && !el.closest('.pdf-txn')) {
+          el.disabled = true;
+        }
+      });
+    } else if(currentRole === "admin") {
+      const allInputs = document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button');
+      allInputs.forEach(el => el.disabled = false);
+    }
+  }
+  
+  function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+  
+  // Event listeners
+  function initEvents() {
+    document.getElementById('moreDetailsBtn')?.addEventListener('click', () => {
+      window.location.href = 'details.html';
+    });
+    document.getElementById('addCustomerBtn')?.addEventListener('click', () => {
+      if(currentRole !== "admin") return;
+      const name = document.getElementById('custName').value.trim();
+      if(!name) return alert('Name required');
+      customers.push({ id: Date.now(), name: name, phone: document.getElementById('custPhone').value.trim() });
+      saveAll();
+      renderAll();
+      document.getElementById('custName').value = '';
+      document.getElementById('custPhone').value = '';
+    });
+    document.getElementById('createLoanBtn')?.addEventListener('click', () => {
+      if(currentRole !== "admin") return;
+      const custId = parseInt(document.getElementById('loanCustomerId').value);
+      if(!custId) return alert('Select customer');
+      const amount = parseFloat(document.getElementById('loanAmount').value);
+      const rate = parseFloat(document.getElementById('loanInterest').value);
+      const method = parseInt(document.getElementById('loanMethod').value);
+      if(isNaN(amount) || amount<=0 || isNaN(rate) || rate<0) return alert('Valid amount and rate');
+      if(amount > cashCapital) return alert(`Insufficient cash capital. Available: ₹${cashCapital}`);
+      let tenure = null;
+      if(method === 3) {
+        tenure = parseInt(document.getElementById('loanTenure').value);
+        if(!tenure || tenure<=0) return alert('Tenure required');
+      }
+      if(createLoan(custId, amount, rate, method, tenure)) {
+        renderAll();
+        document.getElementById('loanAmount').value = '';
+        document.getElementById('loanInterest').value = '';
+      } else alert("Loan creation failed");
+    });
+    document.getElementById('addTransactionBtn')?.addEventListener('click', () => {
+      if(currentRole !== "admin") return;
+      const loanId = parseInt(document.getElementById('txnLoanId').value);
+      if(!loanId) return alert('Select loan');
+      const date = document.getElementById('txnDate').value || new Date().toISOString().slice(0,10);
+      const amount = parseFloat(document.getElementById('txnAmount').value);
+      if(isNaN(amount) || amount<=0) return alert('Valid amount');
+      const res = addTransaction(loanId, date, amount);
+      if(res.success) { renderAll(); document.getElementById('txnAmount').value = ''; }
+      else alert(res.msg);
+    });
+    document.getElementById('setCapitalBtn')?.addEventListener('click', () => {
+      if(currentRole !== "admin") return;
+      const newCap = parseFloat(document.getElementById('initialCapitalInput').value);
+      if(isNaN(newCap) || newCap < 0) return alert('Valid amount');
+      setInitialCapital(newCap);
+      renderAll();
+      alert(`Capital set to ₹${newCap}`);
+    });
+    document.getElementById('withdrawCapitalBtn')?.addEventListener('click', () => {
+      if(currentRole !== "admin") return;
+      const amount = parseFloat(document.getElementById('withdrawAmount').value);
+      if(isNaN(amount) || amount<=0) return alert('Valid amount');
+      if(withdrawCapital(amount)) {
+        renderAll();
+        alert(`Withdrew ₹${amount}. New cash on hand: ₹${cashCapital}`);
+        document.getElementById('withdrawAmount').value = '';
+      } else alert('Insufficient capital or invalid amount');
+    });
+    document.getElementById('resetAllBtn')?.addEventListener('click', () => fullReset());
+    document.getElementById('loanMethod')?.addEventListener('change', (e) => {
+      document.getElementById('emiFields').style.display = e.target.value === '3' ? 'block' : 'none';
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const tabId = tab.getAttribute('data-tab');
+        document.querySelectorAll('.tab-content').forEach(cont => cont.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+  }
+  
+  // Password handling
+  async function unlockApp() {
+    const pwd = document.getElementById('passwordInput').value;
+    if(pwd === '9947') {
+      currentRole = "admin";
+      await proceedToApp();
+    } else if(pwd === '4250') {
+      currentRole = "viewer";
+      await proceedToApp();
+    } else if(pwd === '0000') {
+      document.getElementById('passwordModal').style.display = 'none';
+      const fakeDiv = document.getElementById('fakeTimeDisplay');
+      fakeDiv.style.display = 'block';
+      const now = new Date();
+      fakeDiv.innerHTML = `<div style="background:white; padding:30px; border-radius:20px; width:80%; margin:auto;">
+        <h2>System Time</h2>
+        <p>${now.toLocaleString()}</p>
+        <button onclick="location.reload()">Back</button>
+      </div>`;
+      return;
+    } else {
+      document.getElementById('pwdError').innerText = 'Wrong password';
+      return;
+    }
+  }
+  
+  async function proceedToApp() {
+    document.getElementById('passwordModal').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    await loadDataFromFirebase();
+    initEvents();
+    renderAll();
+    document.getElementById('emiFields').style.display = 'none';
+  }
+  
+  document.getElementById('unlockBtn')?.addEventListener('click', unlockApp);
+  document.getElementById('passwordInput')?.addEventListener('keypress', (e) => { if(e.key === 'Enter') unlockApp(); });
+</script>
+</body>
+</html>
