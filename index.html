@@ -786,7 +786,7 @@
   function initEvents() {
     document.getElementById('openTransactionsBtn')?.addEventListener('click', () => {
       const roleParam = currentRole === 'admin' ? 'admin' : 'viewer';
-      window.open(`transations.html?role=${roleParam}`, '_blank');
+      window.location.href = `transations.html?role=${roleParam}`;
     });
     document.getElementById('moreDetailsBtn')?.addEventListener('click', () => {
       window.location.href = 'details.html';
