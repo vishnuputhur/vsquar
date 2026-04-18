@@ -130,13 +130,13 @@
   <div class="role-badge" id="roleBadge"></div>
   <div class="flex-row">
     <h1>Vsquar · Transaction Manager</h1>
-    <button id="backBtn" class="small-btn" style="background:#6c757d;">← Home</button>
   </div>
   
   <div class="flex-row">
     <select id="loanSelect" style="flex:2;"></select>
     <button id="refreshBtn" class="small-btn">⟳ Sync</button>
     <button id="downloadPdfBtn" class="small-btn success">📎 Save PDF</button>
+    <button id="moreDetailsBtn" class="small-btn" style="background:#6c757d;">ℹ️ More Details</button>
   </div>
   
   <div id="loanSummary" class="output" style="margin-top:5px;">Select a loan to view details</div>
@@ -153,7 +153,7 @@
           <th>Planned Date</th>
           <th>Paid Date</th>
           <th>Amount (₹)</th>
-          <th>Balance (₹)</th>
+          <th>Remaining (₹)</th>
           <th>Remark</th>
           <th class="action-col">Actions</th>
         </tr>
@@ -207,13 +207,34 @@
   function getCustomer(id) { return customers.find(c => c.id == id); }
   function getLoan(id) { return loans.find(l => l.id == id); }
 
+  // Total expected amount for a loan (principal + profit for EMI methods, else just principal)
+  function getTotalExpectedForLoan(loan) {
+    if(loan.method == 4) { // Weekly EMI
+      return (loan.weeklyAmount || 250) * (loan.tenure || 44);
+    } else if(loan.method == 3) { // Monthly EMI
+      return (loan.emiAmount || 0) * (loan.tenure || 1);
+    } else {
+      // Interest only / Flexible: total expected is principal amount
+      return loan.principalAmount;
+    }
+  }
+
+  // NEW recomputePrincipal: returns total remaining amount (principal + unpaid profit)
   function recomputePrincipal(loan) {
-    if(loan.method == 1) return loan.status === 'closed' ? 0 : loan.principalAmount;
+    const totalExpected = getTotalExpectedForLoan(loan);
+    const totalPaid = transactions
+      .filter(t => t.loanId == loan.id)
+      .reduce((sum, t) => sum + t.amount, 0);
+    return Math.max(0, totalExpected - totalPaid);
+  }
+
+  // Original principal outstanding (only principal component, used for payment allocation)
+  function getPrincipalOutstanding(loan) {
     let remaining = loan.principalAmount;
     transactions.filter(t => t.loanId == loan.id).forEach(t => {
       remaining -= (t.principalPortion || 0);
     });
-    return remaining < 0 ? 0 : remaining;
+    return Math.max(0, remaining);
   }
 
   function generateSchedule(loan) {
@@ -236,6 +257,7 @@
     return schedule;
   }
 
+  // Render table: balance column shows remaining total amount (principal+profit) after each paid row
   function renderTable() {
     const loan = getLoan(currentLoanId);
     if(!loan) {
@@ -248,8 +270,10 @@
     document.getElementById('transactionTable').style.display = 'table';
     
     const cust = getCustomer(loan.customerId);
+    const totalExpected = getTotalExpectedForLoan(loan);
+    let totalPaidSoFar = 0;
     document.getElementById('loanSummary').innerHTML = `
-      <strong>${cust ? cust.name : 'Unknown'}</strong> | Loan: ₹${loan.principalAmount} | Status: ${loan.status.toUpperCase()}
+      <strong>${cust ? cust.name : 'Unknown'}</strong> | Loan: ₹${loan.principalAmount} | Total Expected: ₹${totalExpected} | Status: ${loan.status.toUpperCase()}
     `;
 
     const schedule = generateSchedule(loan);
@@ -257,54 +281,74 @@
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
 
-    let runningPrincipal = loan.principalAmount;
-    
-    // logic to combine schedule and payments
     if(schedule.length > 0) {
+      // For scheduled loans (EMI/Weekly)
       schedule.forEach((sch, idx) => {
         const tr = tbody.insertRow();
-        let matched = loanTxns[idx]; // simple mapping by index for EMI
+        const matched = (idx < loanTxns.length) ? loanTxns[idx] : null;
         
         tr.insertCell(0).innerText = idx + 1;
         tr.insertCell(1).innerText = sch.planned;
-        tr.insertCell(2).innerText = matched ? matched.date : "—";
-        tr.insertCell(3).innerText = matched ? `₹${matched.amount}` : "—";
         
-        if(matched) runningPrincipal -= (matched.principalPortion || 0);
-        tr.insertCell(4).innerText = `₹${Math.max(0, runningPrincipal).toFixed(2)}`;
-        tr.insertCell(5).innerText = matched ? (matched.remark || "") : "";
+        if(matched) {
+          tr.insertCell(2).innerText = matched.date;
+          tr.insertCell(3).innerText = `₹${matched.amount}`;
+          totalPaidSoFar += matched.amount;
+          const remainingAfter = Math.max(0, totalExpected - totalPaidSoFar);
+          tr.insertCell(4).innerText = `₹${remainingAfter.toFixed(2)}`;
+          tr.insertCell(5).innerText = matched.remark || "";
+        } else {
+          tr.insertCell(2).innerText = "—";
+          tr.insertCell(3).innerText = "—";
+          tr.insertCell(4).innerText = "—";
+          tr.insertCell(5).innerText = "";
+        }
         
         const actionCell = tr.insertCell(6);
         if(currentRole === 'admin') {
-            if(matched) {
-                actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑</button>`;
-            } else {
-                actionCell.innerHTML = `<button class="small-btn success" onclick="payPlanned('${sch.planned}', ${sch.expected})">+ Pay</button>`;
-            }
+          if(matched) {
+            actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑</button>`;
+          } else {
+            actionCell.innerHTML = `<button class="small-btn success" onclick="payPlanned('${sch.planned}', ${sch.expected})">+ Pay</button>`;
+          }
+        } else {
+          actionCell.innerHTML = "";
         }
       });
-    } else {
-      // Standard list for Interest Only / Flexible
-      loanTxns.forEach((txn, idx) => {
+    } 
+    else {
+      // Non-scheduled loans: show each transaction with cumulative remaining
+      const loanTxnsSorted = [...loanTxns];
+      let cumulativePaid = 0;
+      loanTxnsSorted.forEach((txn, idx) => {
         const tr = tbody.insertRow();
-        runningPrincipal -= (txn.principalPortion || 0);
+        cumulativePaid += txn.amount;
+        const remainingAfter = Math.max(0, totalExpected - cumulativePaid);
         tr.insertCell(0).innerText = idx + 1;
         tr.insertCell(1).innerText = "—";
         tr.insertCell(2).innerText = txn.date;
         tr.insertCell(3).innerText = `₹${txn.amount}`;
-        tr.insertCell(4).innerText = `₹${Math.max(0, runningPrincipal).toFixed(2)}`;
+        tr.insertCell(4).innerText = `₹${remainingAfter.toFixed(2)}`;
         tr.insertCell(5).innerText = txn.remark || "";
         const actionCell = tr.insertCell(6);
         if(currentRole === 'admin') {
           actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${txn.id})">🗑</button>`;
+        } else {
+          actionCell.innerHTML = "";
         }
       });
     }
 
     if(currentRole !== 'admin') {
-        document.querySelectorAll('.action-col').forEach(el => el.style.display = 'none');
-        const rows = tbody.rows;
-        for(let i=0; i<rows.length; i++) rows[i].deleteCell(-1);
+      const actionHeaders = document.querySelectorAll('.action-col');
+      actionHeaders.forEach(el => el.style.display = 'none');
+      const rows = tbody.rows;
+      for(let i=0; i<rows.length; i++) {
+        if(rows[i].cells.length > 6) rows[i].deleteCell(6);
+      }
+    } else {
+      const actionHeaders = document.querySelectorAll('.action-col');
+      actionHeaders.forEach(el => el.style.display = 'table-cell');
     }
   }
 
@@ -325,41 +369,51 @@
     };
   }
 
-  // Admin Actions
-  window.payPlanned = async (date, amount) => {
-    const remark = prompt("Any remark?");
-    await processPayment(currentLoanId, date, amount, remark);
-  };
-
-  window.deleteTxn = async (id) => {
-    if(!confirm("Delete this payment?")) return;
-    const idx = transactions.findIndex(t => t.id == id);
-    if(idx > -1) {
-      cashCapital -= transactions[idx].amount;
-      transactions.splice(idx, 1);
-      await saveToCloud();
-      await loadData();
-    }
-  };
-
+  // Updated processPayment with correct principal outstanding logic (original principal minus principalPortions)
   async function processPayment(loanId, date, amount, remark) {
     const loan = getLoan(loanId);
-    let outstanding = recomputePrincipal(loan);
+    if(!loan) return;
+    
+    // Calculate principal remaining (original principal - sum of principalPortion)
+    let principalRemaining = loan.principalAmount;
+    transactions.filter(t => t.loanId == loan.id).forEach(t => {
+      principalRemaining -= (t.principalPortion || 0);
+    });
+    principalRemaining = Math.max(0, principalRemaining);
+    
     let intPortion = 0, prinPortion = 0;
 
-    if(loan.method == 4) { // Weekly
-        prinPortion = amount;
-    } else {
-        const monthlyRate = loan.interestRate / 100;
-        let interestDue = parseFloat((outstanding * monthlyRate).toFixed(2));
-        if(loan.method == 3) { // Monthly EMI
-            intPortion = interestDue;
-            prinPortion = amount - intPortion;
+    // Weekly EMI logic: first reduce principal, excess goes to profit (interest)
+    if(loan.method == 4) { 
+        if (principalRemaining > 0) {
+            if (amount <= principalRemaining) {
+                prinPortion = amount;
+                intPortion = 0;
+            } else {
+                prinPortion = principalRemaining;
+                intPortion = amount - principalRemaining;
+            }
         } else {
-            intPortion = amount; // Interest only
+            prinPortion = 0;
+            intPortion = amount;
         }
+    } 
+    // Monthly EMI logic
+    else if(loan.method == 3) {
+      const monthlyRate = loan.interestRate / 100;
+      let interestDue = parseFloat((principalRemaining * monthlyRate).toFixed(2));
+      intPortion = Math.min(interestDue, amount);
+      prinPortion = amount - intPortion;
+    } 
+    // Other methods (Interest Only / Flexible): all goes to interest/profit
+    else {
+      intPortion = amount;
+      prinPortion = 0;
     }
 
+    // Ensure principal portion doesn't exceed remaining principal
+    if(prinPortion > principalRemaining) prinPortion = principalRemaining;
+    
     const newTxn = {
       id: Date.now(),
       loanId: loan.id,
@@ -373,11 +427,39 @@
 
     transactions.push(newTxn);
     cashCapital += amount;
-    if(recomputePrincipal(loan) <= 1) loan.status = 'closed';
+    
+    // Update loan status based on total expected amount
+    const totalExpected = getTotalExpectedForLoan(loan);
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
+    if(totalPaid >= totalExpected) {
+        loan.status = 'closed';
+    } else {
+        loan.status = 'active';
+    }
     
     await saveToCloud();
     await loadData();
   }
+
+  // Admin: Pay a planned installment (use today's date as paid date)
+  window.payPlanned = async (plannedDate, expectedAmount) => {
+    const todayDate = new Date().toISOString().slice(0,10);
+    const remark = prompt("Enter remark (optional):", "");
+    if(remark !== null) {
+      await processPayment(currentLoanId, todayDate, expectedAmount, remark);
+    }
+  };
+
+  window.deleteTxn = async (id) => {
+    if(!confirm("Delete this payment?")) return;
+    const idx = transactions.findIndex(t => t.id == id);
+    if(idx > -1) {
+      cashCapital -= transactions[idx].amount;
+      transactions.splice(idx, 1);
+      await saveToCloud();
+      await loadData();
+    }
+  };
 
   async function saveToCloud() {
     await db.collection(COLLECTION).doc(DOC_ID).set({
@@ -385,49 +467,78 @@
     });
   }
 
-  // PDF Export
+  // PDF Export: no rupee symbol, generation date, filename = customer name + date
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const loan = getLoan(currentLoanId);
+    if(!loan) {
+      alert("Please select a loan first.");
+      return;
+    }
     const cust = getCustomer(loan.customerId);
+    const customerName = cust ? cust.name : "Vsquar";
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0,10);
+    const fileName = `${customerName}_${dateStr}.pdf`;
     
     doc.setFontSize(18);
-    doc.text(`Payment Receipt - ${cust ? cust.name : 'Vsquar'}`, 14, 20);
+    doc.text(`Payment Receipt - ${customerName}`, 14, 20);
     doc.setFontSize(10);
-    doc.text(`Loan Amount: ₹${loan.principalAmount} | Method: ${loan.method}`, 14, 30);
+    doc.text(`Loan Amount: ${loan.principalAmount} | Method: ${loan.method === 3 ? 'Monthly EMI' : loan.method === 4 ? 'Weekly EMI' : 'Interest/Flex'}`, 14, 30);
+    doc.text(`Generated on: ${today.toLocaleString()}`, 14, 37);
     
+    // Gather table data without ₹ symbol
     const rows = [];
     document.querySelectorAll('#tableBody tr').forEach(tr => {
-      const data = [];
-      tr.querySelectorAll('td').forEach((td, idx) => {
-          if(idx < 6) data.push(td.innerText);
-      });
-      rows.push(data);
+      const rowData = [];
+      const cells = tr.querySelectorAll('td');
+      for(let i = 0; i < Math.min(cells.length, 6); i++) {
+        let cellText = cells[i].innerText;
+        cellText = cellText.replace(/₹/g, '').trim();
+        rowData.push(cellText);
+      }
+      while(rowData.length < 6) rowData.push('');
+      rows.push(rowData);
     });
-
+    
     doc.autoTable({
-      startY: 35,
-      head: [['#', 'Planned', 'Paid Date', 'Amount', 'Balance', 'Remark']],
+      startY: 44,
+      head: [['#', 'Planned', 'Paid Date', 'Amount', 'Remaining', 'Remark']],
       body: rows,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [0, 119, 182] }
     });
-    doc.save(`Vsquar_Receipt_${currentLoanId}.pdf`);
+    
+    doc.save(fileName);
   };
 
-  document.getElementById('backBtn').onclick = () => { window.location.href = 'index.html'; };
+  document.getElementById('moreDetailsBtn').onclick = () => {
+    window.location.href = 'details.html';
+  };
+
+  document.getElementById('addPaymentBtn').onclick = async () => {
+    const amt = parseFloat(prompt("Enter Amount (₹):"));
+    if(isNaN(amt) || amt <= 0) {
+      alert("Valid amount required.");
+      return;
+    }
+    const dt = prompt("Date (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+    if(!dt) return;
+    const remark = prompt("Remark (optional):", "");
+    if(remark !== null) {
+      await processPayment(currentLoanId, dt, amt, remark);
+    }
+  };
+
   document.getElementById('refreshBtn').onclick = () => loadData();
-  document.getElementById('addPaymentBtn').onclick = () => {
-      const amt = parseFloat(prompt("Enter Amount:"));
-      const dt = prompt("Date (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
-      if(amt > 0 && dt) processPayment(currentLoanId, dt, amt, "Manual Entry");
-  };
 
-  // Init
+  // Initialization
   currentRole = getRoleFromUrl();
   document.getElementById('roleBadge').innerText = currentRole === 'admin' ? "Admin Mode" : "Viewer Mode";
   if(currentRole === 'admin') document.getElementById('adminAddBtn').style.display = 'block';
   loadData();
-
 </script>
 </body>
 </html>
