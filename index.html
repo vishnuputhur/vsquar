@@ -243,8 +243,8 @@
     <div id="dashboard" class="tab-content active">
       <div class="output">
         <strong>Cash on Hand:</strong> <span id="dashCapital">0</span><br>
-        <strong>Outstanding Principal:</strong> <span id="dashOutstanding">0</span><br>
-        <strong>Total Profit:</strong> <span id="dashProfit">0</span><br>
+        <strong>Total Outstanding (Principal+Future Profit):</strong> <span id="dashOutstanding">0</span><br>
+        <strong>Total Profit Earned:</strong> <span id="dashProfit">0</span><br>
         <strong>Partner's Share (50%):</strong> <span id="dashPartnerProfit">0</span>
       </div>
       <div class="stats-row">
@@ -310,8 +310,8 @@
         <strong>Current Cash:</strong> <span id="reportCurrentCapital">₹0</span>
       </div>
       <div class="stats-row">
-        <div class="stat-item">📦 Total Disbursed: <span id="reportDisbursed">₹0</span></div>
-        <div class="stat-item">📊 Outstanding: <span id="reportOutstanding">₹0</span></div>
+        <div class="stat-item">📦 Total Disbursed (Principal): <span id="reportDisbursed">₹0</span></div>
+        <div class="stat-item">📊 Total Outstanding (incl. profit): <span id="reportOutstanding">₹0</span></div>
         <div class="stat-item">✅ Principal Recovered: <span id="reportRecovered">₹0</span></div>
       </div>
     </div>
@@ -387,36 +387,70 @@
   function getLoan(id) { return loans.find(l=>l.id==id); }
   function getCustomer(id) { return customers.find(c=>c.id==id); }
 
-  function recomputePrincipal(loan) {
-    if(loan.method === 1) return loan.status==='closed'?0:loan.principalAmount;
-    let remaining = loan.principalAmount;
-    transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(t=>{ if(t.principalPortion) remaining -= t.principalPortion; });
-    return remaining<0?0:remaining;
+  // NEW: total expected amount for a loan (principal + profit for EMI methods)
+  function getTotalExpectedForLoan(loan) {
+    if(loan.method == 4) { // Weekly EMI
+      return (loan.weeklyAmount || 250) * (loan.tenure || 44);
+    } else if(loan.method == 3) { // Monthly EMI
+      return (loan.emiAmount || 0) * (loan.tenure || 1);
+    } else {
+      return loan.principalAmount;
+    }
   }
+
+  // recomputePrincipal now returns total remaining (principal + future profit)
+  function recomputePrincipal(loan) {
+    const totalExpected = getTotalExpectedForLoan(loan);
+    const totalPaid = transactions
+      .filter(t => t.loanId == loan.id)
+      .reduce((sum, t) => sum + t.amount, 0);
+    return Math.max(0, totalExpected - totalPaid);
+  }
+
   function totalInterest() { return transactions.reduce((s,t)=>s+(t.interestPortion||0),0); }
   function totalPrincipalRecovered() { return transactions.reduce((s,t)=>s+(t.principalPortion||0),0); }
   function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
   function totalOutstanding() { let out=0; loans.forEach(l=>out+=recomputePrincipal(l)); return out; }
 
-  // Add transaction (admin only)
+  // Add transaction with updated weekly EMI logic (principal first, then profit)
   function addTransaction(loanId, date, amount, remark) {
     if(currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
     const loan = getLoan(loanId);
     if(!loan) return { success: false, msg: "Loan not found" };
     if(loan.status === 'closed') return { success: false, msg: "Loan closed" };
-    let outstanding = recomputePrincipal(loan);
     if(amount <= 0) return { success: false, msg: "Amount positive" };
+    
     let interestPortion = 0, principalPortion = 0;
     
-    if(loan.method === 4) { // Weekly EMI - no interest
-      const weeklyAmt = loan.weeklyAmount;
-      if(amount !== weeklyAmt && amount !== outstanding) {
-        return { success: false, msg: `Weekly EMI must be ₹${weeklyAmt} or full balance ₹${outstanding} to close` };
+    if(loan.method === 4) { // Weekly EMI: principal first, then profit
+      // Calculate remaining principal (original principal minus sum of principalPortion)
+      let principalRemaining = loan.principalAmount;
+      transactions.filter(t => t.loanId == loan.id).forEach(t => {
+        principalRemaining -= (t.principalPortion || 0);
+      });
+      principalRemaining = Math.max(0, principalRemaining);
+      
+      if (principalRemaining > 0) {
+        if (amount <= principalRemaining) {
+          principalPortion = amount;
+          interestPortion = 0;
+        } else {
+          principalPortion = principalRemaining;
+          interestPortion = amount - principalRemaining;
+        }
+      } else {
+        principalPortion = 0;
+        interestPortion = amount;
       }
-      principalPortion = amount;
-      interestPortion = 0;
     } 
     else {
+      // For other methods: use existing logic (interest accrual based on days)
+      let outstandingPrincipal = loan.principalAmount;
+      transactions.filter(t => t.loanId == loan.id).forEach(t => {
+        outstandingPrincipal -= (t.principalPortion || 0);
+      });
+      outstandingPrincipal = Math.max(0, outstandingPrincipal);
+      
       const monthlyRate = loan.interestRate / 100;
       const loanTxns = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
       let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
@@ -425,28 +459,34 @@
       if(isNaN(currentDate)) currentDate = new Date();
       const diffDays = Math.max(1, Math.ceil((currentDate - lastDate)/(1000*60*60*24)));
       const dailyRate = monthlyRate/30;
-      let interestAccrued = outstanding * dailyRate * diffDays;
+      let interestAccrued = outstandingPrincipal * dailyRate * diffDays;
       interestAccrued = parseFloat(interestAccrued.toFixed(2));
       
       if(loan.method === 1) { interestPortion = amount; principalPortion = 0; }
       else if(loan.method === 2) {
         if(amount <= interestAccrued) { interestPortion = amount; principalPortion = 0; }
-        else { interestPortion = interestAccrued; principalPortion = amount - interestAccrued; if(principalPortion > outstanding) principalPortion = outstanding; }
+        else { interestPortion = interestAccrued; principalPortion = amount - interestAccrued; if(principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal; }
       }
       else if(loan.method === 3) {
         const emi = loan.emiAmount;
         if(Math.abs(amount - emi) > 0.01) return { success: false, msg: `Monthly EMI must be ₹${emi}` };
-        let interestDue = outstanding * monthlyRate;
+        let interestDue = outstandingPrincipal * monthlyRate;
         interestDue = parseFloat(interestDue.toFixed(2));
         if(amount <= interestDue) { interestPortion = amount; principalPortion = 0; }
-        else { interestPortion = interestDue; principalPortion = amount - interestDue; if(principalPortion > outstanding) principalPortion = outstanding; }
+        else { interestPortion = interestDue; principalPortion = amount - interestDue; if(principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal; }
       }
     }
+    
     const newTxn = { id: Date.now()+Math.random(), loanId: loan.id, date, amount, interestPortion, principalPortion, remark: remark || "", timestamp: new Date().toISOString() };
     transactions.push(newTxn);
     cashCapital += amount;
-    const newOut = recomputePrincipal(loan);
-    if(newOut <= 0.01 && loan.method !== 1) loan.status = 'closed';
+    
+    // Update loan status based on total expected amount
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
+    const totalExpected = getTotalExpectedForLoan(loan);
+    if(totalPaid >= totalExpected) loan.status = 'closed';
+    else loan.status = 'active';
+    
     saveAll();
     return { success: true, msg: "Added", txn: newTxn };
   }
@@ -477,10 +517,17 @@
     if(idx===-1) return false;
     cashCapital -= transactions[idx].amount;
     transactions.splice(idx,1);
-    loans.forEach(l=>{ if(recomputePrincipal(l)<=0.01 && l.method!==1) l.status='closed'; });
+    // Re-evaluate status for all loans
+    loans.forEach(l=>{
+      const totalPaid = transactions.filter(t=>t.loanId==l.id).reduce((sum,t)=>sum+t.amount,0);
+      const totalExpected = getTotalExpectedForLoan(l);
+      if(totalPaid >= totalExpected) l.status='closed';
+      else l.status='active';
+    });
     saveAll();
     return true;
   }
+  
   function editTransaction(txnId, newAmount, newDate, newRemark) {
     if(currentRole !== "admin") return false;
     const txn = transactions.find(t=>t.id==txnId);
@@ -498,6 +545,7 @@
     saveAll();
     return true;
   }
+  
   function closeLoanWithAmount(loanId, closeAmount, closeDate) {
     const loan = getLoan(loanId);
     if(!loan) return false;
@@ -512,7 +560,7 @@
     return false;
   }
 
-  // UI Rendering (similar to before, without PDF)
+  // UI Rendering
   function renderCustomers() {
     const container = document.getElementById('customerList');
     if(!container) return;
@@ -520,6 +568,7 @@
     const loanCust = document.getElementById('loanCustomerId');
     if(loanCust && currentRole==="admin") loanCust.innerHTML = '<option value="">-- select --</option>'+customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   }
+  
   function renderLoans() {
     const container = document.getElementById('loanList');
     if(!container) return;
@@ -532,11 +581,10 @@
       else if(loan.method===2) methodDesc='Flexible';
       else if(loan.method===3) methodDesc=`Monthly EMI ₹${loan.emiAmount}`;
       else methodDesc=`Weekly EMI ₹${loan.weeklyAmount} × ${loan.tenure} weeks`;
-      const hasTxns = transactions.some(t=>t.loanId===loan.id);
       return `<div class="list-item" data-loan-id="${loan.id}">
-        <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">₹${loan.principalAmount}</span></div>
+        <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">Principal: ₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${loan.startDate} | ${methodDesc}</div>
-        <div>Outstanding: ₹${out} | ${loan.status==='closed'?'Closed':'Active'}</div>
+        <div>Total Remaining (incl. profit): ₹${out.toFixed(2)} | ${loan.status==='closed'?'Closed':'Active'}</div>
         <div>
           <button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button>
         </div>
@@ -551,6 +599,7 @@
     const txnLoan = document.getElementById('txnLoanId');
     if(txnLoan && currentRole==="admin") txnLoan.innerHTML = '<option value="">-- select loan --</option>'+loans.map(l=>`<option value="${l.id}">${getCustomer(l.customerId)?.name||'N/A'} - ₹${l.principalAmount}</option>`).join('');
   }
+  
   function showCloseLoanModal(loanId) {
     const loan = getLoan(loanId);
     if(!loan) return;
@@ -566,7 +615,7 @@
     modalDiv.className = 'modal';
     modalDiv.innerHTML = `<div class="modal-content">
       <h3>Close Loan</h3>
-      <p>Outstanding principal: ₹${remaining.toFixed(2)}</p>
+      <p>Total remaining amount (principal + profit): ₹${remaining.toFixed(2)}</p>
       <label>Closing Amount (₹)</label><input type="number" id="closeAmount" placeholder="Enter exact amount">
       <label>Closing Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}">
       <div class="flex-btns"><button id="closeConfirmBtn">Confirm Close</button><button id="closeCancelBtn">Cancel</button></div>
@@ -585,6 +634,7 @@
     };
     modalDiv.querySelector('#closeCancelBtn').onclick = ()=> modalDiv.remove();
   }
+  
   function renderTransactions() {
     const container = document.getElementById('transactionList');
     if(!container) return;
@@ -628,6 +678,7 @@
       });
     }
   }
+  
   function renderDashboard() {
     document.getElementById('dashCustomers').innerText = customers.length;
     document.getElementById('dashActiveLoans').innerText = loans.filter(l=>l.status!=='closed').length;
@@ -636,7 +687,7 @@
     document.getElementById('dashProfit').innerText = profit.toFixed(2);
     document.getElementById('dashCapital').innerText = cashCapital.toFixed(2);
     document.getElementById('dashPartnerProfit').innerText = (profit/2).toFixed(2);
-    // due alerts
+    // due alerts (based on remaining total expected, but alert on schedule)
     const alerts = [];
     const today = new Date();
     const nextWeek = new Date(); nextWeek.setDate(today.getDate()+7);
@@ -657,6 +708,7 @@
     });
     document.getElementById('dueAlertsContainer').innerHTML = alerts.length ? alerts.map(a=>`<div class="due-card">${a.customer} | Due: ${a.date} | ${a.text}</div>`).join('') : '<div class="text-muted">No dues in next 7 days</div>';
   }
+  
   function renderReports() {
     document.getElementById('reportInterest').innerHTML = `₹${totalInterest().toFixed(2)}`;
     const initCap = cashCapital - totalInterest();
@@ -666,6 +718,7 @@
     document.getElementById('reportOutstanding').innerHTML = `₹${totalOutstanding().toFixed(2)}`;
     document.getElementById('reportRecovered').innerHTML = `₹${totalPrincipalRecovered().toFixed(2)}`;
   }
+  
   function renderAll() { renderCustomers(); renderLoans(); renderTransactions(); renderDashboard(); renderReports(); if(currentRole==="viewer") document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>{ if(!el.classList.contains('tab')) el.disabled=true; }); else document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>el.disabled=false); }
   function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
 
