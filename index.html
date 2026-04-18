@@ -36,13 +36,17 @@
       font-weight: bold;
       font-size: 0.85em;
     }
-    input, select {
+    input, select, textarea {
       width: 40%;
       padding: 8px;
       margin-top: 5px;
       border: 1px solid #ccc;
       border-radius: 8px;
       font-size: 0.85em;
+    }
+    textarea {
+      resize: vertical;
+      font-family: inherit;
     }
     .output {
       background: #e0f7fa;
@@ -167,9 +171,15 @@
       margin-bottom: 8px;
       border-radius: 8px;
     }
+    .due-card.overdue {
+      background: #ffe0e0;
+      border-left-color: #dc3545;
+      color: #b00020;
+      font-weight: bold;
+    }
     @media (max-width: 600px) {
       .container { width: 90%; padding: 10px; }
-      input, select { width: 100%; }
+      input, select, textarea { width: 100%; }
       .tab { padding: 5px 9px; font-size: 0.8em; }
       button { padding: 8px; }
     }
@@ -226,7 +236,7 @@
   <div class="container">
     <div class="sync-status" id="syncStatus">🔄 Syncing...</div>
     <h1>Vsquar</h1>
-    <!-- Transaction Manager Link (opens in new tab) -->
+    <!-- Transaction Manager Link (opens in new tab) - always enabled for both roles -->
     <div style="text-align: right; margin-bottom: 10px;">
       <button id="openTransactionsBtn" class="small-btn" style="background: #2a9d8f; width: auto;">📋 Detailed Transaction Manager</button>
     </div>
@@ -251,18 +261,20 @@
         <div class="stat-item">👥 Customers: <span id="dashCustomers">0</span></div>
         <div class="stat-item">🏦 Active Loans: <span id="dashActiveLoans">0</span></div>
       </div>
-      <div style="margin-top:20px"><strong>📅 Due Alerts (next 7 days)</strong><div id="dueAlertsContainer"></div></div>
-      <div style="margin-top:20px; background:#f8f9fa; padding:10px; border-radius:10px;">
-        <label>Withdraw Capital (₹)</label>
-        <input type="number" id="withdrawAmount" placeholder="Amount">
-        <button id="withdrawCapitalBtn">Withdraw</button>
+      <!-- More Details Button -->
+      <div style="margin-top: 15px;">
+        <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">ℹ️ More Details</button>
       </div>
+      <div style="margin-top:20px"><strong>📅 Due Alerts (next 7 days)</strong><div id="dueAlertsContainer"></div></div>
+      <!-- Withdraw removed from dashboard, moved to settings -->
     </div>
 
     <!-- Customers -->
     <div id="customers" class="tab-content">
       <label>Name</label><input type="text" id="custName" placeholder="Full name">
       <label>Phone</label><input type="text" id="custPhone" placeholder="Phone">
+      <label>Address (max 150 chars)</label>
+      <textarea id="custAddress" rows="2" maxlength="150" placeholder="Address, landmark, etc."></textarea>
       <button id="addCustomerBtn">Add Customer</button>
       <div id="customerList"></div>
     </div>
@@ -319,9 +331,16 @@
     <!-- Settings -->
     <div id="settings" class="tab-content">
       <div style="background:#e9ecef; padding:12px; border-radius:12px;">
-        <label>🏦 Set Initial Cash Capital (₹)</label>
-        <input type="number" id="initialCapitalInput" placeholder="Enter amount">
-        <button id="setCapitalBtn">Set Capital</button>
+        <div><strong>💰 Current Capital (Cash on Hand):</strong> <span id="settingsCurrentCapital">₹0</span></div>
+        <label>➕ Add Capital (₹)</label>
+        <input type="number" id="addCapitalInput" placeholder="Amount to add">
+        <button id="addCapitalBtn">Add Capital</button>
+      </div>
+      <hr>
+      <div style="background:#e9ecef; padding:12px; border-radius:12px; margin-top:10px;">
+        <label>🏦 Withdraw Capital (₹)</label>
+        <input type="number" id="withdrawAmountSettings" placeholder="Amount to withdraw">
+        <button id="withdrawCapitalSettingsBtn">Withdraw</button>
       </div>
       <hr>
       <button id="resetAllBtn" style="background:#dc3545;">⚠️ Full Reset</button>
@@ -387,18 +406,16 @@
   function getLoan(id) { return loans.find(l=>l.id==id); }
   function getCustomer(id) { return customers.find(c=>c.id==id); }
 
-  // NEW: total expected amount for a loan (principal + profit for EMI methods)
   function getTotalExpectedForLoan(loan) {
-    if(loan.method == 4) { // Weekly EMI
+    if(loan.method == 4) {
       return (loan.weeklyAmount || 250) * (loan.tenure || 44);
-    } else if(loan.method == 3) { // Monthly EMI
+    } else if(loan.method == 3) {
       return (loan.emiAmount || 0) * (loan.tenure || 1);
     } else {
       return loan.principalAmount;
     }
   }
 
-  // recomputePrincipal now returns total remaining (principal + future profit)
   function recomputePrincipal(loan) {
     const totalExpected = getTotalExpectedForLoan(loan);
     const totalPaid = transactions
@@ -422,14 +439,12 @@
     
     let interestPortion = 0, principalPortion = 0;
     
-    if(loan.method === 4) { // Weekly EMI: principal first, then profit
-      // Calculate remaining principal (original principal minus sum of principalPortion)
+    if(loan.method === 4) {
       let principalRemaining = loan.principalAmount;
       transactions.filter(t => t.loanId == loan.id).forEach(t => {
         principalRemaining -= (t.principalPortion || 0);
       });
       principalRemaining = Math.max(0, principalRemaining);
-      
       if (principalRemaining > 0) {
         if (amount <= principalRemaining) {
           principalPortion = amount;
@@ -444,7 +459,6 @@
       }
     } 
     else {
-      // For other methods: use existing logic (interest accrual based on days)
       let outstandingPrincipal = loan.principalAmount;
       transactions.filter(t => t.loanId == loan.id).forEach(t => {
         outstandingPrincipal -= (t.principalPortion || 0);
@@ -481,7 +495,6 @@
     transactions.push(newTxn);
     cashCapital += amount;
     
-    // Update loan status based on total expected amount
     const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
     const totalExpected = getTotalExpectedForLoan(loan);
     if(totalPaid >= totalExpected) loan.status = 'closed';
@@ -517,7 +530,6 @@
     if(idx===-1) return false;
     cashCapital -= transactions[idx].amount;
     transactions.splice(idx,1);
-    // Re-evaluate status for all loans
     loans.forEach(l=>{
       const totalPaid = transactions.filter(t=>t.loanId==l.id).reduce((sum,t)=>sum+t.amount,0);
       const totalExpected = getTotalExpectedForLoan(l);
@@ -564,7 +576,7 @@
   function renderCustomers() {
     const container = document.getElementById('customerList');
     if(!container) return;
-    container.innerHTML = customers.length ? customers.map(c=>`<div class="list-item"><div class="flex-row"><strong>${escapeHtml(c.name)}</strong><span class="badge">${c.phone||''}</span></div></div>`).join('') : '<div class="text-muted">No customers</div>';
+    container.innerHTML = customers.length ? customers.map(c=>`<div class="list-item"><div class="flex-row"><strong>${escapeHtml(c.name)}</strong><span class="badge">${c.phone||''}</span></div><div class="text-muted">${escapeHtml(c.address||'')}</div></div>`).join('') : '<div class="text-muted">No customers</div>';
     const loanCust = document.getElementById('loanCustomerId');
     if(loanCust && currentRole==="admin") loanCust.innerHTML = '<option value="">-- select --</option>'+customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   }
@@ -679,6 +691,17 @@
     }
   }
   
+  // Helper to compute next due date for a loan
+  function getNextDueDate(loan) {
+    const lastTxn = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+    let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
+    if(lastTxn) lastDate = new Date(lastTxn.date);
+    let nextDue = new Date(lastDate);
+    if(loan.method===4) nextDue.setDate(nextDue.getDate()+7);
+    else nextDue.setMonth(nextDue.getMonth()+1);
+    return nextDue;
+  }
+
   function renderDashboard() {
     document.getElementById('dashCustomers').innerText = customers.length;
     document.getElementById('dashActiveLoans').innerText = loans.filter(l=>l.status!=='closed').length;
@@ -687,26 +710,26 @@
     document.getElementById('dashProfit').innerText = profit.toFixed(2);
     document.getElementById('dashCapital').innerText = cashCapital.toFixed(2);
     document.getElementById('dashPartnerProfit').innerText = (profit/2).toFixed(2);
-    // due alerts (based on remaining total expected, but alert on schedule)
+    
+    // Due alerts with overdue highlighting
     const alerts = [];
     const today = new Date();
-    const nextWeek = new Date(); nextWeek.setDate(today.getDate()+7);
+    today.setHours(0,0,0,0);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate()+7);
     loans.forEach(loan=>{
       if(loan.status==='closed') return;
       const out = recomputePrincipal(loan);
       if(out<=0) return;
-      const lastTxn = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
-      let lastDate = loan.startDate ? new Date(loan.startDate) : today;
-      if(lastTxn) lastDate = new Date(lastTxn.date);
-      let nextDue = new Date(lastDate);
-      if(loan.method===4) nextDue.setDate(nextDue.getDate()+7);
-      else nextDue.setMonth(nextDue.getMonth()+1);
-      if(nextDue>=today && nextDue<=nextWeek) {
+      const nextDue = getNextDueDate(loan);
+      const dueDateStr = nextDue.toISOString().slice(0,10);
+      if(nextDue >= today && nextDue <= nextWeek) {
         let dueText = loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : (loan.method===3?`EMI ₹${loan.emiAmount}`:"Payment due");
-        alerts.push({ customer: getCustomer(loan.customerId)?.name||"Unknown", date: nextDue.toISOString().slice(0,10), text: dueText });
+        const isOverdue = nextDue < today;
+        alerts.push({ customer: getCustomer(loan.customerId)?.name||"Unknown", date: dueDateStr, text: dueText, overdue: isOverdue });
       }
     });
-    document.getElementById('dueAlertsContainer').innerHTML = alerts.length ? alerts.map(a=>`<div class="due-card">${a.customer} | Due: ${a.date} | ${a.text}</div>`).join('') : '<div class="text-muted">No dues in next 7 days</div>';
+    document.getElementById('dueAlertsContainer').innerHTML = alerts.length ? alerts.map(a=>`<div class="due-card ${a.overdue ? 'overdue' : ''}">${a.customer} | Due: ${a.date} | ${a.text} ${a.overdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No dues in next 7 days</div>';
   }
   
   function renderReports() {
@@ -719,7 +742,28 @@
     document.getElementById('reportRecovered').innerHTML = `₹${totalPrincipalRecovered().toFixed(2)}`;
   }
   
-  function renderAll() { renderCustomers(); renderLoans(); renderTransactions(); renderDashboard(); renderReports(); if(currentRole==="viewer") document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>{ if(!el.classList.contains('tab')) el.disabled=true; }); else document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el=>el.disabled=false); }
+  function renderSettings() {
+    document.getElementById('settingsCurrentCapital').innerHTML = `₹${cashCapital.toFixed(2)}`;
+  }
+  
+  function renderAll() { 
+    renderCustomers(); 
+    renderLoans(); 
+    renderTransactions(); 
+    renderDashboard(); 
+    renderReports();
+    renderSettings();
+    if(currentRole==="viewer") {
+      // Disable all inputs/buttons except tabs and the openTransactionsBtn and moreDetailsBtn
+      document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(el=>{
+        if(!el.classList.contains('tab') && el.id !== 'openTransactionsBtn' && el.id !== 'moreDetailsBtn') {
+          el.disabled = true;
+        }
+      });
+    } else {
+      document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(el=>el.disabled=false);
+    }
+  }
   function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
 
   // Event handlers
@@ -728,13 +772,17 @@
       const roleParam = currentRole === 'admin' ? 'admin' : 'viewer';
       window.open(`transations.html?role=${roleParam}`, '_blank');
     });
+    document.getElementById('moreDetailsBtn')?.addEventListener('click', () => {
+      window.location.href = 'details.html';
+    });
     document.getElementById('addCustomerBtn')?.addEventListener('click',()=>{
       if(currentRole!=="admin") return;
       const name = document.getElementById('custName').value.trim();
       if(!name) return alert("Name required");
-      customers.push({ id: Date.now(), name, phone: document.getElementById('custPhone').value.trim() });
+      const address = document.getElementById('custAddress').value.trim().slice(0,150);
+      customers.push({ id: Date.now(), name, phone: document.getElementById('custPhone').value.trim(), address });
       saveAll(); renderAll();
-      document.getElementById('custName').value=''; document.getElementById('custPhone').value='';
+      document.getElementById('custName').value=''; document.getElementById('custPhone').value=''; document.getElementById('custAddress').value='';
     });
     document.getElementById('createLoanBtn')?.addEventListener('click',()=>{
       if(currentRole!=="admin") return;
@@ -772,18 +820,28 @@
       if(res.success) { renderAll(); document.getElementById('txnAmount').value=''; document.getElementById('txnRemark').value=''; }
       else alert(res.msg);
     });
-    document.getElementById('setCapitalBtn')?.addEventListener('click',()=>{
+    // Add Capital button (settings)
+    document.getElementById('addCapitalBtn')?.addEventListener('click',()=>{
       if(currentRole!=="admin") return;
-      const newCap = parseFloat(document.getElementById('initialCapitalInput').value);
-      if(isNaN(newCap)||newCap<0) return alert("Valid amount");
-      cashCapital = newCap; saveAll(); renderAll(); alert(`Capital set to ₹${newCap}`);
+      const addAmt = parseFloat(document.getElementById('addCapitalInput').value);
+      if(isNaN(addAmt) || addAmt<=0) return alert("Enter valid amount to add");
+      cashCapital += addAmt;
+      saveAll();
+      renderAll();
+      document.getElementById('addCapitalInput').value = '';
+      alert(`Added ₹${addAmt}. New capital: ₹${cashCapital.toFixed(2)}`);
     });
-    document.getElementById('withdrawCapitalBtn')?.addEventListener('click',()=>{
+    // Withdraw button (settings)
+    document.getElementById('withdrawCapitalSettingsBtn')?.addEventListener('click',()=>{
       if(currentRole!=="admin") return;
-      const amt = parseFloat(document.getElementById('withdrawAmount').value);
+      const amt = parseFloat(document.getElementById('withdrawAmountSettings').value);
       if(isNaN(amt)||amt<=0) return alert("Valid amount");
       if(amt > cashCapital) return alert("Insufficient capital");
-      cashCapital -= amt; saveAll(); renderAll(); alert(`Withdrew ₹${amt}`);
+      cashCapital -= amt;
+      saveAll();
+      renderAll();
+      document.getElementById('withdrawAmountSettings').value = '';
+      alert(`Withdrew ₹${amt}`);
     });
     document.getElementById('resetAllBtn')?.addEventListener('click',()=>{
       if(confirm("⚠️ FULL RESET: All data lost")) { customers=[]; loans=[]; transactions=[]; cashCapital=0; saveAll(); renderAll(); alert("Reset done"); }
