@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vsquar-v1';
+const CACHE_NAME = 'vsquar-v2';
 const assets = [
   './',
   './index.html',
