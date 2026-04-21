@@ -35,7 +35,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
-    /* Your existing CSS (same as before) */
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
     .container { max-width: 100%; width: 85%; margin: 20px auto; background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); position: relative; }
@@ -45,6 +44,7 @@
     textarea { resize: vertical; font-family: inherit; }
     .output { background: #e0f7fa; padding: 10px; margin-top: 15px; border-radius: 8px; text-align: center; font-size: 0.85em; }
     .output span { color: #d9534f; font-weight: bold; }
+    .profit-green { color: #2e7d32 !important; font-weight: bold; }
     button { margin-top: 15px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85em; }
     button.small-btn { width: auto; padding: 5px 12px; margin: 0 4px; display: inline-block; font-size: 0.7em; }
     button.danger { background: #dc3545; }
@@ -69,7 +69,7 @@
     .due-card { background: #fff3e0; border-left: 4px solid #f4a261; padding: 8px; margin-bottom: 8px; border-radius: 8px; font-size: 0.8em; }
     .due-card.overdue { background: #ffe0e0; border-left-color: #dc3545; color: #b00020; font-weight: bold; }
     .capital-history { max-height: 250px; overflow-y: auto; margin-top: 15px; border-top: 1px solid #ccc; padding-top: 10px; }
-    .capital-entry { background: #f1f9fe; border-radius: 12px; padding: 8px 12px; margin-bottom: 8px; font-size: 0.75em; display: flex; justify-content: space-between; }
+    .capital-entry { background: #f1f9fe; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: 0.75em; display: flex; justify-content: space-between; align-items: center; }
     .countdown-modal .modal-content { text-align: center; }
     .countdown-timer { font-size: 2rem; font-weight: bold; color: #dc3545; margin: 15px 0; }
     @media (max-width: 600px) { .container { width: 90%; padding: 10px; } input, select, textarea { width: 100%; } .tab { padding: 5px 9px; font-size: 0.75em; } button { padding: 8px; } }
@@ -113,8 +113,8 @@
         <strong>💰 Cash on Hand:</strong> <span id="dashCapital">0</span><br>
         <strong>📊 Total Outstanding:</strong> <span id="dashOutstanding">0</span><br>
         <strong>🏦 Total Invested (Disbursed):</strong> <span id="dashInvested">0</span><br>
-        <strong>📈 Approx Profit (20% p.a. on outstanding):</strong> <span id="dashApproxProfit">0</span><br>
-        <strong>✅ Total Profit Earned:</strong> <span id="dashProfit">0</span><br>
+        <strong>📈 Approx Profit:</strong> <span id="dashApproxProfit" class="profit-green">0</span><br>
+        <strong>✅ Total Profit Earned:</strong> <span id="dashProfit" class="profit-green">0</span><br>
         <strong>👥 Partner's Share (50%):</strong> <span id="dashPartnerProfit">0</span>
       </div>
       <div class="stats-row">
@@ -123,7 +123,7 @@
       </div>
       <button id="transactionManagerBtn" class="transaction-manager-btn" style="background:#2a9d8f;">📋 Detailed Transaction Manager</button>
       <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">ℹ️ More Details</button>
-      <div style="margin-top:20px"><strong>📅 Due Alerts (sorted by urgency)</strong><div id="dueAlertsContainer"></div></div>
+      <div style="margin-top:20px"><strong>📅 Due Alerts</strong><div id="dueAlertsContainer"></div></div>
     </div>
 
     <!-- Customers -->
@@ -221,6 +221,14 @@
   let customers = [], loans = [], transactions = [], cashCapital = 0, currentRole = "";
   let capitalHistory = [];
 
+  // Helper: format YYYY-MM-DD to DD.MM.YYYY
+  function formatDateDMY(dateStr) {
+    if (!dateStr) return '';
+    let parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    return dateStr;
+  }
+
   async function syncToFirebase() {
     if (currentRole !== "admin") return;
     try {
@@ -308,12 +316,15 @@
     return total;
   }
 
-  function getNextDueDate(loan) {
+  // Get next due date only for method 3 (EMI) and method 4 (Weekly). For others return null.
+  function getNextDueDateForAlert(loan) {
+    if (loan.method !== 3 && loan.method !== 4) return null;
+    if (loan.status === 'closed') return null;
     const relevantTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
     let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
-    if(relevantTxns.length) lastDate = new Date(relevantTxns[0].date);
+    if (relevantTxns.length) lastDate = new Date(relevantTxns[0].date);
     let nextDue = new Date(lastDate);
-    if(loan.method === 4) nextDue.setDate(nextDue.getDate() + 7);
+    if (loan.method === 4) nextDue.setDate(nextDue.getDate() + 7);
     else nextDue.setMonth(nextDue.getMonth() + 1);
     return nextDue;
   }
@@ -484,7 +495,7 @@
       else methodDesc=`Weekly EMI ₹${loan.weeklyAmount} × ${loan.tenure} weeks`;
       return `<div class="list-item" data-loan-id="${loan.id}">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">Principal: ₹${loan.principalAmount}</span></div>
-        <div>Rate: ${loan.interestRate}% | Start: ${loan.startDate} | ${methodDesc}</div>
+        <div>Rate: ${loan.interestRate}% | Start: ${formatDateDMY(loan.startDate)} | ${methodDesc}</div>
         <div>Remaining: ₹${out.toFixed(2)} | ${loan.status==='closed'?'Closed':'Active'}</div>
         <div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button></div>
       </div>`;
@@ -522,10 +533,10 @@
       const cust = loan ? getCustomer(loan.customerId) : null;
       let actionBtns = '';
       if(currentRole==="admin") actionBtns = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button><button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>`;
-      return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${txn.date}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
+      return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${formatDateDMY(txn.date)}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
     }).join('');
     if(currentRole==="admin") {
-      document.querySelectorAll('.edit-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); const txn = transactions.find(t=>t.id===id); if(txn){ const newAmt = prompt("New amount", txn.amount); if(newAmt!==null){ const newDate = prompt("New date", txn.date); const newRemark = prompt("Remark", txn.remark||''); if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) renderAll(); else alert("Edit failed"); } } }); });
+      document.querySelectorAll('.edit-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); const txn = transactions.find(t=>t.id===id); if(txn){ const newAmt = prompt("New amount", txn.amount); if(newAmt!==null){ const newDate = prompt("New date (YYYY-MM-DD)", txn.date); const newRemark = prompt("Remark", txn.remark||''); if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) renderAll(); else alert("Edit failed"); } } }); });
       document.querySelectorAll('.delete-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); deleteTransaction(id); renderAll(); }); });
     }
   }
@@ -538,27 +549,47 @@
     const invested = totalDisbursed();
     document.getElementById('dashInvested').innerText = invested.toFixed(2);
     const approxProfit = computeApproxProfit();
-    document.getElementById('dashApproxProfit').innerText = approxProfit.toFixed(2);
-    const profit = totalInterest();
-    document.getElementById('dashProfit').innerText = profit.toFixed(2);
+    const profitEarned = totalInterest();
+    // Show profit with percentage relative to invested amount
+    const profitPercent = invested > 0 ? (profitEarned / invested * 100).toFixed(2) : '0.00';
+    const approxPercent = invested > 0 ? (approxProfit / invested * 100).toFixed(2) : '0.00';
+    document.getElementById('dashProfit').innerHTML = `₹${profitEarned.toFixed(2)} <span style="font-size:0.7rem;">(${profitPercent}%)</span>`;
+    document.getElementById('dashApproxProfit').innerHTML = `₹${approxProfit.toFixed(2)} <span style="font-size:0.7rem;">(${approxPercent}%)</span>`;
     document.getElementById('dashCapital').innerText = cashCapital.toFixed(2);
-    document.getElementById('dashPartnerProfit').innerText = (profit/2).toFixed(2);
+    document.getElementById('dashPartnerProfit').innerText = (profitEarned/2).toFixed(2);
     
+    // Due alerts: only for method 3 & 4, within ±3 days from today
     const today = new Date(); today.setHours(0,0,0,0);
+    const threeDays = 3 * 24 * 60 * 60 * 1000;
     const alerts = [];
     loans.forEach(loan => {
-      if(loan.status === 'closed') return;
-      if(recomputePrincipal(loan) <= 0) return;
-      const nextDue = getNextDueDate(loan);
-      const dueDateStr = nextDue.toISOString().slice(0,10);
-      const isOverdue = nextDue < today;
-      alerts.push({ customer: getCustomer(loan.customerId)?.name||"Unknown", date: dueDateStr, dueDateObj: nextDue, overdue: isOverdue, methodText: loan.method===4?`Weekly ₹${loan.weeklyAmount}`:(loan.method===3?`EMI ₹${loan.emiAmount}`:"Payment due") });
+      if (loan.status === 'closed') return;
+      if (loan.method !== 3 && loan.method !== 4) return; // only EMI/weekly have scheduled dues
+      const remaining = recomputePrincipal(loan);
+      if (remaining <= 0.01) return;
+      const nextDue = getNextDueDateForAlert(loan);
+      if (!nextDue) return;
+      const diffDays = Math.floor((nextDue - today) / (1000*60*60*24));
+      // Show if overdue up to 3 days or upcoming within 3 days
+      if (diffDays >= -3 && diffDays <= 3) {
+        const isOverdue = nextDue < today;
+        alerts.push({
+          customer: getCustomer(loan.customerId)?.name || "Unknown",
+          dueDate: nextDue,
+          dueDateStr: formatDateDMY(nextDue.toISOString().slice(0,10)),
+          isOverdue,
+          methodText: loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`
+        });
+      }
     });
     alerts.sort((a,b) => {
-      if(a.overdue !== b.overdue) return a.overdue ? -1 : 1;
-      return a.dueDateObj - b.dueDateObj;
+      if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+      return a.dueDate - b.dueDate;
     });
-    document.getElementById('dueAlertsContainer').innerHTML = alerts.length ? alerts.map(a=>`<div class="due-card ${a.overdue ? 'overdue' : ''}">${a.customer} | Due: ${a.date} | ${a.methodText} ${a.overdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No active dues</div>';
+    const container = document.getElementById('dueAlertsContainer');
+    if (container) {
+      container.innerHTML = alerts.length ? alerts.map(a => `<div class="due-card ${a.isOverdue ? 'overdue' : ''}">${a.customer} | Due: ${a.dueDateStr} | ${a.methodText} ${a.isOverdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No dues in ±3 days</div>';
+    }
   }
   
   function renderCapitalTab() {
@@ -571,7 +602,7 @@
     document.getElementById('capitalRecovered').innerHTML = `₹${totalPrincipalRecovered().toFixed(2)}`;
     const historyDiv = document.getElementById('capitalHistoryList');
     if(historyDiv) {
-      historyDiv.innerHTML = capitalHistory.length ? capitalHistory.map(h => `<div class="capital-entry"><span>${h.date} | ${h.type === 'add' ? '➕ Invest' : '🏧 Withdraw'} ₹${h.amount}</span><span class="badge">${new Date(h.timestamp).toLocaleString()}</span></div>`).join('') : '<div class="text-muted">No capital transactions yet</div>';
+      historyDiv.innerHTML = capitalHistory.length ? capitalHistory.map(h => `<div class="capital-entry"><span>${formatDateDMY(h.date)} | ${h.type === 'add' ? '➕ Invest' : '🏧 Withdraw'} ₹${h.amount}</span><span class="badge">${new Date(h.timestamp).toLocaleString()}</span></div>`).join('') : '<div class="text-muted">No capital transactions yet</div>';
     }
   }
   
