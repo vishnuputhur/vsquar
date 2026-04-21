@@ -4,23 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
   <title>Vsquar · Loan Manager</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ffffff">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link rel="apple-touch-icon" href="icon-192.png">
-
-<script>
-  // Register Service Worker for PWA
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log('Vsquar PWA: Registered'))
-        .catch(err => console.log('Vsquar PWA: Error', err));
-    });
-  }
-</script>
-
-  <!-- Firebase SDKs only (PDF removed) -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Vsquar PWA: Registered'))
+          .catch(err => console.log('Vsquar PWA: Error', err));
+      });
+    }
+  </script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
   <style>
@@ -40,18 +36,10 @@
       padding: 15px;
       border-radius: 15px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      position: relative;
     }
-    h1 {
-      text-align: center;
-      color: #0077b6;
-      font-size: 1.7em;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-      font-size: 0.85em;
-    }
+    h1 { text-align: center; color: #0077b6; font-size: 1.7em; margin-top: 0; }
+    label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; }
     input, select, textarea {
       width: 40%;
       padding: 8px;
@@ -60,10 +48,7 @@
       border-radius: 8px;
       font-size: 0.85em;
     }
-    textarea {
-      resize: vertical;
-      font-family: inherit;
-    }
+    textarea { resize: vertical; font-family: inherit; }
     .output {
       background: #e0f7fa;
       padding: 10px;
@@ -72,10 +57,7 @@
       text-align: center;
       font-size: 0.85em;
     }
-    .output span {
-      color: red;
-      font-weight: bold;
-    }
+    .output span { color: #d9534f; font-weight: bold; }
     button {
       margin-top: 15px;
       padding: 10px;
@@ -90,31 +72,20 @@
     }
     button.small-btn {
       width: auto;
-      padding: 5px 10px;
-      margin: 0 3px;
+      padding: 5px 12px;
+      margin: 0 4px;
       display: inline-block;
       font-size: 0.7em;
     }
     button.danger { background: #dc3545; }
     button.warning { background: #f4a261; }
-    .more-details-btn {
+    .more-details-btn, .transaction-manager-btn {
       background: #2a9d8f;
-      margin-top: 5px;
-      margin-bottom: 10px;
+      margin-top: 8px;
+      margin-bottom: 8px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-      font-size: 0.75em;
-      overflow-x: auto;
-      display: block;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 5px;
-      text-align: center;
-    }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.75em; overflow-x: auto; display: block; }
+    th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
     th { background: #90e0ef; }
     .footer {
       text-align: center;
@@ -124,6 +95,7 @@
       padding: 10px;
       font-size: 0.75em;
       border-radius: 8px;
+      position: relative;
     }
     .tabs {
       display: flex;
@@ -155,6 +127,7 @@
       margin-top: 10px;
       font-size: 0.8em;
       gap: 10px;
+      flex-wrap: wrap;
     }
     .stat-item { text-align: center; flex: 1; }
     .list-item {
@@ -186,6 +159,7 @@
       padding: 8px;
       margin-bottom: 8px;
       border-radius: 8px;
+      font-size: 0.8em;
     }
     .due-card.overdue {
       background: #ffe0e0;
@@ -193,10 +167,28 @@
       color: #b00020;
       font-weight: bold;
     }
+    .capital-history {
+      max-height: 250px;
+      overflow-y: auto;
+      margin-top: 15px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+    .capital-entry {
+      background: #f1f9fe;
+      border-radius: 12px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+      font-size: 0.75em;
+      display: flex;
+      justify-content: space-between;
+    }
+    .countdown-modal .modal-content { text-align: center; }
+    .countdown-timer { font-size: 2rem; font-weight: bold; color: #dc3545; margin: 15px 0; }
     @media (max-width: 600px) {
       .container { width: 90%; padding: 10px; }
       input, select, textarea { width: 100%; }
-      .tab { padding: 5px 9px; font-size: 0.8em; }
+      .tab { padding: 5px 9px; font-size: 0.75em; }
       button { padding: 8px; }
     }
     .password-overlay {
@@ -218,19 +210,19 @@
     }
     .password-card input { width: 100%; margin: 10px 0; }
     .error-msg { color: red; font-size: 0.75em; }
-    .sync-status {
-      font-size: 0.7em;
+    .sync-status-bottom {
+      font-size: 0.65em;
       text-align: center;
-      margin-bottom: 8px;
-      color: green;
+      margin-top: 8px;
+      color: #e0f7fa;
     }
     .modal {
       position: fixed; top:0; left:0; width:100%; height:100%;
-      background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
       z-index: 2000;
     }
     .modal-content {
-      background: white; border-radius: 24px; padding: 25px; width: 90%; max-width: 450px;
+      background: white; border-radius: 24px; padding: 25px; width: 90%; max-width: 400px;
     }
     .modal-content input, .modal-content select { width: 100%; margin: 10px 0; padding: 10px; border-radius: 12px; border:1px solid #ccc; }
     .flex-btns { display: flex; gap: 12px; margin-top: 15px; justify-content: flex-end; }
@@ -250,39 +242,34 @@
 
 <div id="mainApp" style="display:none">
   <div class="container">
-    <div class="sync-status" id="syncStatus">🔄 Syncing...</div>
     <h1>Vsquar</h1>
-    <!-- Transaction Manager Link (opens in new tab) - always enabled for both roles -->
-    <div style="text-align: right; margin-bottom: 10px;">
-      <button id="openTransactionsBtn" class="small-btn" style="background: #2a9d8f; width: auto;">📋 Detailed Transaction Manager</button>
-    </div>
     <div class="tabs">
       <div class="tab active" data-tab="dashboard">Dashboard</div>
       <div class="tab" data-tab="customers">Customers</div>
       <div class="tab" data-tab="loans">Loans</div>
       <div class="tab" data-tab="transactions">Transactions</div>
-      <div class="tab" data-tab="reports">Profit/Capital</div>
-      <div class="tab" data-tab="settings">Settings</div>
+      <div class="tab" data-tab="capital">Capital</div>
     </div>
 
     <!-- Dashboard -->
     <div id="dashboard" class="tab-content active">
       <div class="output">
-        <strong>Cash on Hand:</strong> <span id="dashCapital">0</span><br>
-        <strong>Total Outstanding (Principal+Future Profit):</strong> <span id="dashOutstanding">0</span><br>
-        <strong>Total Profit Earned:</strong> <span id="dashProfit">0</span><br>
-        <strong>Partner's Share (50%):</strong> <span id="dashPartnerProfit">0</span>
+        <strong>💰 Cash on Hand:</strong> <span id="dashCapital">0</span><br>
+        <strong>📊 Total Outstanding:</strong> <span id="dashOutstanding">0</span><br>
+        <strong>🏦 Total Invested (Disbursed):</strong> <span id="dashInvested">0</span><br>
+        <strong>📈 Approx Profit (20% p.a. on outstanding):</strong> <span id="dashApproxProfit">0</span><br>
+        <strong>✅ Total Profit Earned:</strong> <span id="dashProfit">0</span><br>
+        <strong>👥 Partner's Share (50%):</strong> <span id="dashPartnerProfit">0</span>
       </div>
       <div class="stats-row">
         <div class="stat-item">👥 Customers: <span id="dashCustomers">0</span></div>
         <div class="stat-item">🏦 Active Loans: <span id="dashActiveLoans">0</span></div>
       </div>
-      <!-- More Details Button -->
-      <div style="margin-top: 15px;">
-        <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">ℹ️ More Details</button>
-      </div>
-      <div style="margin-top:20px"><strong>📅 Due Alerts (next 7 days)</strong><div id="dueAlertsContainer"></div></div>
-      <!-- Withdraw removed from dashboard, moved to settings -->
+      <!-- Buttons: Transaction Manager above More Details -->
+      <button id="transactionManagerBtn" class="transaction-manager-btn" style="background:#2a9d8f;">📋 Detailed Transaction Manager</button>
+      <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">ℹ️ More Details</button>
+      
+      <div style="margin-top:20px"><strong>📅 Due Alerts (sorted by urgency)</strong><div id="dueAlertsContainer"></div></div>
     </div>
 
     <!-- Customers -->
@@ -320,7 +307,7 @@
       <div id="loanList"></div>
     </div>
 
-    <!-- Transactions (simplified, but keep for quick add) -->
+    <!-- Transactions -->
     <div id="transactions" class="tab-content">
       <label>Select Loan</label><select id="txnLoanId"></select>
       <label>Date</label><input type="date" id="txnDate">
@@ -330,39 +317,35 @@
       <div id="transactionList"></div>
     </div>
 
-    <!-- Reports -->
-    <div id="reports" class="tab-content">
+    <!-- Capital Tab (merged with old reports + settings) -->
+    <div id="capital" class="tab-content">
       <div class="output">
-        <strong>Total Interest Earned:</strong> <span id="reportInterest">₹0</span><br>
-        <strong>Initial Capital:</strong> <span id="reportBaseCapital">₹0</span><br>
-        <strong>Current Cash:</strong> <span id="reportCurrentCapital">₹0</span>
+        <strong>💰 Current Cash:</strong> <span id="capitalCurrentCash">₹0</span><br>
+        <strong>📈 Total Interest Earned:</strong> <span id="capitalInterestEarned">₹0</span><br>
+        <strong>🏦 Initial Capital (Estimate):</strong> <span id="capitalInitialCapital">₹0</span><br>
+        <strong>📦 Total Disbursed (Principal):</strong> <span id="capitalDisbursed">₹0</span><br>
+        <strong>📊 Total Outstanding:</strong> <span id="capitalOutstanding">₹0</span><br>
+        <strong>✅ Principal Recovered:</strong> <span id="capitalRecovered">₹0</span>
       </div>
-      <div class="stats-row">
-        <div class="stat-item">📦 Total Disbursed (Principal): <span id="reportDisbursed">₹0</span></div>
-        <div class="stat-item">📊 Total Outstanding (incl. profit): <span id="reportOutstanding">₹0</span></div>
-        <div class="stat-item">✅ Principal Recovered: <span id="reportRecovered">₹0</span></div>
-      </div>
-    </div>
-
-    <!-- Settings -->
-    <div id="settings" class="tab-content">
+      <hr>
       <div style="background:#e9ecef; padding:12px; border-radius:12px;">
-        <div><strong>💰 Current Capital (Cash on Hand):</strong> <span id="settingsCurrentCapital">₹0</span></div>
-        <label>➕ Add Capital (₹)</label>
+        <div><strong>➕ Add Capital (Invest)</strong></div>
         <input type="number" id="addCapitalInput" placeholder="Amount to add">
         <button id="addCapitalBtn">Add Capital</button>
       </div>
-      <hr>
       <div style="background:#e9ecef; padding:12px; border-radius:12px; margin-top:10px;">
-        <label>🏦 Withdraw Capital (₹)</label>
+        <div><strong>🏦 Withdraw Capital</strong></div>
         <input type="number" id="withdrawAmountSettings" placeholder="Amount to withdraw">
         <button id="withdrawCapitalSettingsBtn">Withdraw</button>
       </div>
-      <hr>
-      <button id="resetAllBtn" style="background:#dc3545;">⚠️ Full Reset</button>
+      <div><strong>📜 Capital Transaction History</strong></div>
+      <div id="capitalHistoryList" class="capital-history"></div>
     </div>
 
-    <div class="footer">Vsquar · Equal Partners · Cloud Sync</div>
+    <div class="footer">
+      Vsquar · Equal Partners · Cloud Sync
+      <div id="syncStatus" class="sync-status-bottom">🔄 Syncing...</div>
+    </div>
   </div>
 </div>
 
@@ -382,11 +365,12 @@
   const DOC_ID = "appData";
 
   let customers = [], loans = [], transactions = [], cashCapital = 0, currentRole = "";
+  let capitalHistory = []; // {id, type, amount, date, timestamp}
 
   async function syncToFirebase() {
     if (currentRole !== "admin") return;
     try {
-      await db.collection(COLLECTION).doc(DOC_ID).set({ customers, loans, transactions, cashCapital, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
+      await db.collection(COLLECTION).doc(DOC_ID).set({ customers, loans, transactions, cashCapital, capitalHistory, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
       document.getElementById('syncStatus').innerHTML = "✅ Synced";
       setTimeout(() => document.getElementById('syncStatus').innerHTML = "☁️ Active", 2000);
     } catch(e) { console.error(e); }
@@ -397,10 +381,12 @@
       if(doc.exists) {
         const d = doc.data();
         customers = d.customers || []; loans = d.loans || []; transactions = d.transactions || []; cashCapital = d.cashCapital || 0;
+        capitalHistory = d.capitalHistory || [];
         localStorage.setItem('vsquar_customers', JSON.stringify(customers));
         localStorage.setItem('vsquar_loans', JSON.stringify(loans));
         localStorage.setItem('vsquar_transactions', JSON.stringify(transactions));
         localStorage.setItem('vsquar_cashCapital', cashCapital);
+        localStorage.setItem('vsquar_capitalHistory', JSON.stringify(capitalHistory));
       } else loadLocalBackup();
     } catch(e) { loadLocalBackup(); }
   }
@@ -409,6 +395,7 @@
     loans = JSON.parse(localStorage.getItem('vsquar_loans')||'[]');
     transactions = JSON.parse(localStorage.getItem('vsquar_transactions')||'[]');
     cashCapital = parseFloat(localStorage.getItem('vsquar_cashCapital')||0);
+    capitalHistory = JSON.parse(localStorage.getItem('vsquar_capitalHistory')||'[]');
   }
   function saveAll() {
     if(currentRole !== "admin") return;
@@ -416,27 +403,29 @@
     localStorage.setItem('vsquar_loans', JSON.stringify(loans));
     localStorage.setItem('vsquar_transactions', JSON.stringify(transactions));
     localStorage.setItem('vsquar_cashCapital', cashCapital);
+    localStorage.setItem('vsquar_capitalHistory', JSON.stringify(capitalHistory));
     syncToFirebase();
+  }
+
+  function addCapitalHistory(type, amount, dateStr) {
+    if(currentRole !== "admin") return;
+    capitalHistory.unshift({ id: Date.now()+Math.random(), type, amount, date: dateStr, timestamp: new Date().toISOString() });
+    if(capitalHistory.length > 100) capitalHistory.pop();
+    saveAll();
   }
 
   function getLoan(id) { return loans.find(l=>l.id==id); }
   function getCustomer(id) { return customers.find(c=>c.id==id); }
 
   function getTotalExpectedForLoan(loan) {
-    if(loan.method == 4) {
-      return (loan.weeklyAmount || 250) * (loan.tenure || 44);
-    } else if(loan.method == 3) {
-      return (loan.emiAmount || 0) * (loan.tenure || 1);
-    } else {
-      return loan.principalAmount;
-    }
+    if(loan.method == 4) return (loan.weeklyAmount || 250) * (loan.tenure || 44);
+    else if(loan.method == 3) return (loan.emiAmount || 0) * (loan.tenure || 1);
+    else return loan.principalAmount;
   }
 
   function recomputePrincipal(loan) {
     const totalExpected = getTotalExpectedForLoan(loan);
-    const totalPaid = transactions
-      .filter(t => t.loanId == loan.id)
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
     return Math.max(0, totalExpected - totalPaid);
   }
 
@@ -445,7 +434,37 @@
   function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
   function totalOutstanding() { let out=0; loans.forEach(l=>out+=recomputePrincipal(l)); return out; }
 
-  // Add transaction with updated weekly EMI logic (principal first, then profit)
+  // Approx profit at 20% p.a. on current outstanding principal (remaining principal from start date to today)
+  function computeApproxProfit() {
+    let total = 0;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    loans.forEach(loan => {
+      if(loan.status === 'closed') return;
+      let remainingPrincipal = loan.principalAmount;
+      transactions.filter(t=>t.loanId===loan.id).forEach(t=>{ remainingPrincipal -= (t.principalPortion||0); });
+      remainingPrincipal = Math.max(0, remainingPrincipal);
+      if(remainingPrincipal <= 0) return;
+      const startDate = loan.startDate ? new Date(loan.startDate) : new Date();
+      if(isNaN(startDate)) return;
+      const daysDiff = Math.max(0, Math.floor((today - startDate) / (1000*60*60*24)));
+      if(daysDiff <= 0) return;
+      const interest = remainingPrincipal * (0.20 / 365) * daysDiff;
+      total += interest;
+    });
+    return total;
+  }
+
+  function getNextDueDate(loan) {
+    const relevantTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
+    if(relevantTxns.length) lastDate = new Date(relevantTxns[0].date);
+    let nextDue = new Date(lastDate);
+    if(loan.method === 4) nextDue.setDate(nextDue.getDate() + 7);
+    else nextDue.setMonth(nextDue.getMonth() + 1);
+    return nextDue;
+  }
+
   function addTransaction(loanId, date, amount, remark) {
     if(currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
     const loan = getLoan(loanId);
@@ -454,33 +473,18 @@
     if(amount <= 0) return { success: false, msg: "Amount positive" };
     
     let interestPortion = 0, principalPortion = 0;
-    
     if(loan.method === 4) {
       let principalRemaining = loan.principalAmount;
-      transactions.filter(t => t.loanId == loan.id).forEach(t => {
-        principalRemaining -= (t.principalPortion || 0);
-      });
+      transactions.filter(t => t.loanId == loan.id).forEach(t => { principalRemaining -= (t.principalPortion || 0); });
       principalRemaining = Math.max(0, principalRemaining);
       if (principalRemaining > 0) {
-        if (amount <= principalRemaining) {
-          principalPortion = amount;
-          interestPortion = 0;
-        } else {
-          principalPortion = principalRemaining;
-          interestPortion = amount - principalRemaining;
-        }
-      } else {
-        principalPortion = 0;
-        interestPortion = amount;
-      }
-    } 
-    else {
+        if (amount <= principalRemaining) { principalPortion = amount; interestPortion = 0; }
+        else { principalPortion = principalRemaining; interestPortion = amount - principalRemaining; }
+      } else { principalPortion = 0; interestPortion = amount; }
+    } else {
       let outstandingPrincipal = loan.principalAmount;
-      transactions.filter(t => t.loanId == loan.id).forEach(t => {
-        outstandingPrincipal -= (t.principalPortion || 0);
-      });
+      transactions.filter(t => t.loanId == loan.id).forEach(t => { outstandingPrincipal -= (t.principalPortion || 0); });
       outstandingPrincipal = Math.max(0, outstandingPrincipal);
-      
       const monthlyRate = loan.interestRate / 100;
       const loanTxns = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
       let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
@@ -491,7 +495,6 @@
       const dailyRate = monthlyRate/30;
       let interestAccrued = outstandingPrincipal * dailyRate * diffDays;
       interestAccrued = parseFloat(interestAccrued.toFixed(2));
-      
       if(loan.method === 1) { interestPortion = amount; principalPortion = 0; }
       else if(loan.method === 2) {
         if(amount <= interestAccrued) { interestPortion = amount; principalPortion = 0; }
@@ -506,16 +509,13 @@
         else { interestPortion = interestDue; principalPortion = amount - interestDue; if(principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal; }
       }
     }
-    
     const newTxn = { id: Date.now()+Math.random(), loanId: loan.id, date, amount, interestPortion, principalPortion, remark: remark || "", timestamp: new Date().toISOString() };
     transactions.push(newTxn);
     cashCapital += amount;
-    
     const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
     const totalExpected = getTotalExpectedForLoan(loan);
     if(totalPaid >= totalExpected) loan.status = 'closed';
     else loan.status = 'active';
-    
     saveAll();
     return { success: true, msg: "Added", txn: newTxn };
   }
@@ -528,11 +528,7 @@
       const r = rate/100;
       emi = amount * r * Math.pow(1+r, tenure) / (Math.pow(1+r, tenure)-1);
       emi = Math.round(emi);
-    } else if(method === 4) {
-      weeklyAmt = weeklyAmount;
-      if(!weeklyAmt || weeklyAmt <=0) return false;
-      tenure = tenure;
-    }
+    } else if(method === 4) { weeklyAmt = weeklyAmount; if(!weeklyAmt || weeklyAmt <=0) return false; }
     const newLoan = { id: Date.now(), customerId: custId, principalAmount: amount, interestRate: rate, method, status: 'active', startDate, emiAmount: emi, tenure: tenure || null, weeklyAmount: weeklyAmt };
     loans.push(newLoan);
     cashCapital -= amount;
@@ -540,23 +536,58 @@
     return true;
   }
 
+  // DELETE with 5-sec countdown confirmation
+  function showCountdownConfirm(message, onConfirm) {
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modal countdown-modal';
+    let countdown = 5;
+    modalDiv.innerHTML = `<div class="modal-content">
+      <h3>⚠️ ${message}</h3>
+      <p>Confirm deletion after <span id="countdownNum">5</span> seconds</p>
+      <div class="countdown-timer" id="timerDisplay">5</div>
+      <div class="flex-btns"><button id="confirmDeleteBtn" disabled style="background:#aaa;">Wait ${countdown}s</button><button id="cancelDeleteBtn">Cancel</button></div>
+    </div>`;
+    document.body.appendChild(modalDiv);
+    const timerDisplay = modalDiv.querySelector('#timerDisplay');
+    const confirmBtn = modalDiv.querySelector('#confirmDeleteBtn');
+    const interval = setInterval(() => {
+      countdown--;
+      timerDisplay.innerText = countdown;
+      confirmBtn.innerText = `Confirm (${countdown}s)`;
+      if(countdown <= 0) {
+        clearInterval(interval);
+        confirmBtn.disabled = false;
+        confirmBtn.innerText = "Yes, Delete";
+        confirmBtn.style.background = "#dc3545";
+      }
+    }, 1000);
+    confirmBtn.onclick = () => { clearInterval(interval); onConfirm(); modalDiv.remove(); };
+    modalDiv.querySelector('#cancelDeleteBtn').onclick = () => { clearInterval(interval); modalDiv.remove(); };
+  }
+
   function deleteTransaction(txnId) {
     if(currentRole !== "admin") return false;
-    const idx = transactions.findIndex(t=>t.id==txnId);
-    if(idx===-1) return false;
-    cashCapital -= transactions[idx].amount;
-    transactions.splice(idx,1);
-    loans.forEach(l=>{
-      const totalPaid = transactions.filter(t=>t.loanId==l.id).reduce((sum,t)=>sum+t.amount,0);
-      const totalExpected = getTotalExpectedForLoan(l);
-      if(totalPaid >= totalExpected) l.status='closed';
-      else l.status='active';
+    const txn = transactions.find(t=>t.id==txnId);
+    if(!txn) return false;
+    showCountdownConfirm("Delete this transaction permanently?", () => {
+      const idx = transactions.findIndex(t=>t.id==txnId);
+      if(idx !== -1) {
+        cashCapital -= transactions[idx].amount;
+        transactions.splice(idx,1);
+        loans.forEach(l=>{
+          const totalPaid = transactions.filter(t=>t.loanId==l.id).reduce((sum,t)=>sum+t.amount,0);
+          const totalExpected = getTotalExpectedForLoan(l);
+          if(totalPaid >= totalExpected) l.status='closed';
+          else l.status='active';
+        });
+        saveAll();
+        renderAll();
+      }
     });
-    saveAll();
     return true;
   }
   
-  function editTransaction(txnId, newAmount, newDate, newRemark) {
+  function editTransaction(txnId, newAmount, newDate, newRemark) { /* keep as before without delete timer */ 
     if(currentRole !== "admin") return false;
     const txn = transactions.find(t=>t.id==txnId);
     if(!txn) return false;
@@ -564,14 +595,8 @@
     const idx = transactions.findIndex(t=>t.id==txnId);
     transactions.splice(idx,1);
     const result = addTransaction(txn.loanId, newDate, newAmount, newRemark);
-    if(!result.success) {
-      cashCapital += txn.amount;
-      transactions.push(txn);
-      saveAll();
-      return false;
-    }
-    saveAll();
-    return true;
+    if(!result.success) { cashCapital += txn.amount; transactions.push(txn); saveAll(); return false; }
+    saveAll(); return true;
   }
   
   function closeLoanWithAmount(loanId, closeAmount, closeDate) {
@@ -580,15 +605,11 @@
     const remaining = recomputePrincipal(loan);
     if(Math.abs(closeAmount - remaining) > 0.01) return false;
     const res = addTransaction(loanId, closeDate, closeAmount, "Loan closure payment");
-    if(res.success) {
-      loan.status = 'closed';
-      saveAll();
-      return true;
-    }
+    if(res.success) { loan.status = 'closed'; saveAll(); return true; }
     return false;
   }
 
-  // UI Rendering
+  // --- RENDERING ---
   function renderCustomers() {
     const container = document.getElementById('customerList');
     if(!container) return;
@@ -612,18 +633,11 @@
       return `<div class="list-item" data-loan-id="${loan.id}">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">Principal: ₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${loan.startDate} | ${methodDesc}</div>
-        <div>Total Remaining (incl. profit): ₹${out.toFixed(2)} | ${loan.status==='closed'?'Closed':'Active'}</div>
-        <div>
-          <button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button>
-        </div>
+        <div>Remaining: ₹${out.toFixed(2)} | ${loan.status==='closed'?'Closed':'Active'}</div>
+        <div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button></div>
       </div>`;
     }).join('');
-    document.querySelectorAll('.close-loan').forEach(btn=>{
-      btn.addEventListener('click', (e)=>{
-        const id = parseInt(btn.getAttribute('data-id'));
-        showCloseLoanModal(id);
-      });
-    });
+    document.querySelectorAll('.close-loan').forEach(btn=>{ btn.addEventListener('click', (e)=>{ const id = parseInt(btn.getAttribute('data-id')); showCloseLoanModal(id); }); });
     const txnLoan = document.getElementById('txnLoanId');
     if(txnLoan && currentRole==="admin") txnLoan.innerHTML = '<option value="">-- select loan --</option>'+loans.map(l=>`<option value="${l.id}">${getCustomer(l.customerId)?.name||'N/A'} - ₹${l.principalAmount}</option>`).join('');
   }
@@ -632,33 +646,17 @@
     const loan = getLoan(loanId);
     if(!loan) return;
     const remaining = recomputePrincipal(loan);
-    if(remaining <= 0.01) {
-      loan.status = 'closed';
-      saveAll();
-      renderAll();
-      alert("Loan already closed");
-      return;
-    }
+    if(remaining <= 0.01) { loan.status = 'closed'; saveAll(); renderAll(); alert("Loan already closed"); return; }
     const modalDiv = document.createElement('div');
     modalDiv.className = 'modal';
-    modalDiv.innerHTML = `<div class="modal-content">
-      <h3>Close Loan</h3>
-      <p>Total remaining amount (principal + profit): ₹${remaining.toFixed(2)}</p>
-      <label>Closing Amount (₹)</label><input type="number" id="closeAmount" placeholder="Enter exact amount">
-      <label>Closing Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}">
-      <div class="flex-btns"><button id="closeConfirmBtn">Confirm Close</button><button id="closeCancelBtn">Cancel</button></div>
-    </div>`;
+    modalDiv.innerHTML = `<div class="modal-content"><h3>Close Loan</h3><p>Remaining: ₹${remaining.toFixed(2)}</p><label>Closing Amount (₹)</label><input type="number" id="closeAmount"><label>Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}"><div class="flex-btns"><button id="closeConfirmBtn">Confirm</button><button id="closeCancelBtn">Cancel</button></div></div>`;
     document.body.appendChild(modalDiv);
     modalDiv.querySelector('#closeConfirmBtn').onclick = ()=>{
       const closeAmount = parseFloat(modalDiv.querySelector('#closeAmount').value);
       const closeDate = modalDiv.querySelector('#closeDate').value;
-      if(isNaN(closeAmount) || closeAmount<=0) { alert("Valid amount"); return; }
-      if(Math.abs(closeAmount - remaining) > 0.01) { alert(`Amount must equal outstanding ₹${remaining.toFixed(2)}`); return; }
-      if(closeLoanWithAmount(loanId, closeAmount, closeDate)) {
-        renderAll();
-        alert("Loan closed");
-        modalDiv.remove();
-      } else alert("Failed");
+      if(isNaN(closeAmount) || Math.abs(closeAmount-remaining)>0.01) alert(`Amount must equal ₹${remaining.toFixed(2)}`);
+      else if(closeLoanWithAmount(loanId, closeAmount, closeDate)) { renderAll(); alert("Loan closed"); modalDiv.remove(); }
+      else alert("Failed");
     };
     modalDiv.querySelector('#closeCancelBtn').onclick = ()=> modalDiv.remove();
   }
@@ -671,227 +669,89 @@
       const loan = getLoan(txn.loanId);
       const cust = loan ? getCustomer(loan.customerId) : null;
       let actionBtns = '';
-      if(currentRole==="admin") {
-        actionBtns = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button>
-          <button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>`;
-      }
-      return `<div class="list-item">
-        <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${txn.date}</span></div>
-        <div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div>
-        <div>Remark: ${escapeHtml(txn.remark||'')}</div>
-        ${actionBtns}
-      </div>`;
+      if(currentRole==="admin") actionBtns = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button><button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>`;
+      return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${txn.date}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
     }).join('');
     if(currentRole==="admin") {
-      document.querySelectorAll('.edit-txn').forEach(btn=>{
-        btn.addEventListener('click',(e)=>{
-          const id = parseInt(btn.getAttribute('data-id'));
-          const txn = transactions.find(t=>t.id===id);
-          if(txn){
-            const newAmt = prompt("New amount", txn.amount);
-            if(newAmt===null) return;
-            const newDate = prompt("New date (YYYY-MM-DD)", txn.date);
-            if(newDate===null) return;
-            const newRemark = prompt("New remark", txn.remark||'');
-            if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) { renderAll(); alert("Updated"); }
-            else alert("Edit failed");
-          }
-        });
-      });
-      document.querySelectorAll('.delete-txn').forEach(btn=>{
-        btn.addEventListener('click',(e)=>{
-          const id = parseInt(btn.getAttribute('data-id'));
-          if(confirm("Delete transaction?")) { deleteTransaction(id); renderAll(); }
-        });
-      });
+      document.querySelectorAll('.edit-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); const txn = transactions.find(t=>t.id===id); if(txn){ const newAmt = prompt("New amount", txn.amount); if(newAmt!==null){ const newDate = prompt("New date", txn.date); const newRemark = prompt("Remark", txn.remark||''); if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) renderAll(); else alert("Edit failed"); } } }); });
+      document.querySelectorAll('.delete-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); deleteTransaction(id); renderAll(); }); });
     }
   }
   
-  // Helper to compute next due date for a loan
-  function getNextDueDate(loan) {
-    const lastTxn = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
-    let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
-    if(lastTxn) lastDate = new Date(lastTxn.date);
-    let nextDue = new Date(lastDate);
-    if(loan.method===4) nextDue.setDate(nextDue.getDate()+7);
-    else nextDue.setMonth(nextDue.getMonth()+1);
-    return nextDue;
-  }
-
   function renderDashboard() {
     document.getElementById('dashCustomers').innerText = customers.length;
     document.getElementById('dashActiveLoans').innerText = loans.filter(l=>l.status!=='closed').length;
-    document.getElementById('dashOutstanding').innerText = totalOutstanding().toFixed(2);
+    const outstanding = totalOutstanding();
+    document.getElementById('dashOutstanding').innerText = outstanding.toFixed(2);
+    const invested = totalDisbursed();
+    document.getElementById('dashInvested').innerText = invested.toFixed(2);
+    const approxProfit = computeApproxProfit();
+    document.getElementById('dashApproxProfit').innerText = approxProfit.toFixed(2);
     const profit = totalInterest();
     document.getElementById('dashProfit').innerText = profit.toFixed(2);
     document.getElementById('dashCapital').innerText = cashCapital.toFixed(2);
     document.getElementById('dashPartnerProfit').innerText = (profit/2).toFixed(2);
     
-    // Due alerts with overdue highlighting
+    // Due Alerts: sorted by urgency (overdue first, then upcoming)
+    const today = new Date(); today.setHours(0,0,0,0);
     const alerts = [];
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate()+7);
-    loans.forEach(loan=>{
-      if(loan.status==='closed') return;
-      const out = recomputePrincipal(loan);
-      if(out<=0) return;
+    loans.forEach(loan => {
+      if(loan.status === 'closed') return;
+      if(recomputePrincipal(loan) <= 0) return;
       const nextDue = getNextDueDate(loan);
       const dueDateStr = nextDue.toISOString().slice(0,10);
-      if(nextDue >= today && nextDue <= nextWeek) {
-        let dueText = loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : (loan.method===3?`EMI ₹${loan.emiAmount}`:"Payment due");
-        const isOverdue = nextDue < today;
-        alerts.push({ customer: getCustomer(loan.customerId)?.name||"Unknown", date: dueDateStr, text: dueText, overdue: isOverdue });
-      }
+      const isOverdue = nextDue < today;
+      alerts.push({ customer: getCustomer(loan.customerId)?.name||"Unknown", date: dueDateStr, dueDateObj: nextDue, overdue: isOverdue, methodText: loan.method===4?`Weekly ₹${loan.weeklyAmount}`:(loan.method===3?`EMI ₹${loan.emiAmount}`:"Payment due") });
     });
-    document.getElementById('dueAlertsContainer').innerHTML = alerts.length ? alerts.map(a=>`<div class="due-card ${a.overdue ? 'overdue' : ''}">${a.customer} | Due: ${a.date} | ${a.text} ${a.overdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No dues in next 7 days</div>';
+    alerts.sort((a,b) => {
+      if(a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+      return a.dueDateObj - b.dueDateObj;
+    });
+    document.getElementById('dueAlertsContainer').innerHTML = alerts.length ? alerts.map(a=>`<div class="due-card ${a.overdue ? 'overdue' : ''}">${a.customer} | Due: ${a.date} | ${a.methodText} ${a.overdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No active dues</div>';
   }
   
-  function renderReports() {
-    document.getElementById('reportInterest').innerHTML = `₹${totalInterest().toFixed(2)}`;
+  function renderCapitalTab() {
+    document.getElementById('capitalCurrentCash').innerHTML = `₹${cashCapital.toFixed(2)}`;
+    document.getElementById('capitalInterestEarned').innerHTML = `₹${totalInterest().toFixed(2)}`;
     const initCap = cashCapital - totalInterest();
-    document.getElementById('reportBaseCapital').innerHTML = `₹${initCap>=0?initCap.toFixed(2):"0.00"}`;
-    document.getElementById('reportCurrentCapital').innerHTML = `₹${cashCapital.toFixed(2)}`;
-    document.getElementById('reportDisbursed').innerHTML = `₹${totalDisbursed().toFixed(2)}`;
-    document.getElementById('reportOutstanding').innerHTML = `₹${totalOutstanding().toFixed(2)}`;
-    document.getElementById('reportRecovered').innerHTML = `₹${totalPrincipalRecovered().toFixed(2)}`;
-  }
-  
-  function renderSettings() {
-    document.getElementById('settingsCurrentCapital').innerHTML = `₹${cashCapital.toFixed(2)}`;
+    document.getElementById('capitalInitialCapital').innerHTML = `₹${initCap>=0?initCap.toFixed(2):"0.00"}`;
+    document.getElementById('capitalDisbursed').innerHTML = `₹${totalDisbursed().toFixed(2)}`;
+    document.getElementById('capitalOutstanding').innerHTML = `₹${totalOutstanding().toFixed(2)}`;
+    document.getElementById('capitalRecovered').innerHTML = `₹${totalPrincipalRecovered().toFixed(2)}`;
+    const historyDiv = document.getElementById('capitalHistoryList');
+    if(historyDiv) {
+      historyDiv.innerHTML = capitalHistory.length ? capitalHistory.map(h => `<div class="capital-entry"><span>${h.date} | ${h.type === 'add' ? '➕ Invest' : '🏧 Withdraw'} ₹${h.amount}</span><span class="badge">${new Date(h.timestamp).toLocaleString()}</span></div>`).join('') : '<div class="text-muted">No capital transactions yet</div>';
+    }
   }
   
   function renderAll() { 
-    renderCustomers(); 
-    renderLoans(); 
-    renderTransactions(); 
-    renderDashboard(); 
-    renderReports();
-    renderSettings();
+    renderCustomers(); renderLoans(); renderTransactions(); renderDashboard(); renderCapitalTab();
     if(currentRole==="viewer") {
-      // Disable all inputs/buttons except tabs and the openTransactionsBtn and moreDetailsBtn
-      document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(el=>{
-        if(!el.classList.contains('tab') && el.id !== 'openTransactionsBtn' && el.id !== 'moreDetailsBtn') {
-          el.disabled = true;
-        }
-      });
+      document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(el=>{ if(!el.classList.contains('tab') && el.id !== 'transactionManagerBtn' && el.id !== 'moreDetailsBtn') el.disabled = true; });
     } else {
       document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(el=>el.disabled=false);
     }
   }
   function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
 
-  // Event handlers
   function initEvents() {
-    document.getElementById('openTransactionsBtn')?.addEventListener('click', () => {
-      const roleParam = currentRole === 'admin' ? 'admin' : 'viewer';
-      window.location.href = `transations.html?role=${roleParam}`;
-    });
-    document.getElementById('moreDetailsBtn')?.addEventListener('click', () => {
-      window.location.href = 'details.html';
-    });
-    document.getElementById('addCustomerBtn')?.addEventListener('click',()=>{
-      if(currentRole!=="admin") return;
-      const name = document.getElementById('custName').value.trim();
-      if(!name) return alert("Name required");
-      const address = document.getElementById('custAddress').value.trim().slice(0,150);
-      customers.push({ id: Date.now(), name, phone: document.getElementById('custPhone').value.trim(), address });
-      saveAll(); renderAll();
-      document.getElementById('custName').value=''; document.getElementById('custPhone').value=''; document.getElementById('custAddress').value='';
-    });
-    document.getElementById('createLoanBtn')?.addEventListener('click',()=>{
-      if(currentRole!=="admin") return;
-      const custId = parseInt(document.getElementById('loanCustomerId').value);
-      if(!custId) return alert("Select customer");
-      const startDate = document.getElementById('loanStartDate').value;
-      if(!startDate) return alert("Select start date");
-      const amount = parseFloat(document.getElementById('loanAmount').value);
-      const rate = parseFloat(document.getElementById('loanInterest').value);
-      const method = parseInt(document.getElementById('loanMethod').value);
-      if(isNaN(amount)||amount<=0) return alert("Valid amount");
-      if(method!==4 && (isNaN(rate)||rate<0)) return alert("Valid interest rate");
-      if(amount > cashCapital) return alert(`Insufficient cash. Available: ₹${cashCapital}`);
-      let tenure = null, weeklyAmt = null;
-      if(method===3 || method===4) {
-        tenure = parseInt(document.getElementById('loanTenure').value);
-        if(!tenure || tenure<=0) return alert(`Enter number of ${method===3?'months':'weeks'}`);
-        if(method===4) {
-          weeklyAmt = parseFloat(document.getElementById('weeklyInstallment').value);
-          if(!weeklyAmt || weeklyAmt<=0) return alert("Enter weekly installment amount");
-        }
-      }
-      if(createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmt)) { renderAll(); document.getElementById('loanAmount').value=''; document.getElementById('loanInterest').value=''; document.getElementById('loanTenure').value=''; document.getElementById('weeklyInstallment').value=''; }
-      else alert("Loan creation failed");
-    });
-    document.getElementById('addTransactionBtn')?.addEventListener('click',()=>{
-      if(currentRole!=="admin") return;
-      const loanId = parseInt(document.getElementById('txnLoanId').value);
-      if(!loanId) return alert("Select loan");
-      const date = document.getElementById('txnDate').value || new Date().toISOString().slice(0,10);
-      const amount = parseFloat(document.getElementById('txnAmount').value);
-      if(isNaN(amount)||amount<=0) return alert("Valid amount");
-      const remark = document.getElementById('txnRemark').value;
-      const res = addTransaction(loanId, date, amount, remark);
-      if(res.success) { renderAll(); document.getElementById('txnAmount').value=''; document.getElementById('txnRemark').value=''; }
-      else alert(res.msg);
-    });
-    // Add Capital button (settings)
-    document.getElementById('addCapitalBtn')?.addEventListener('click',()=>{
-      if(currentRole!=="admin") return;
-      const addAmt = parseFloat(document.getElementById('addCapitalInput').value);
-      if(isNaN(addAmt) || addAmt<=0) return alert("Enter valid amount to add");
-      cashCapital += addAmt;
-      saveAll();
-      renderAll();
-      document.getElementById('addCapitalInput').value = '';
-      alert(`Added ₹${addAmt}. New capital: ₹${cashCapital.toFixed(2)}`);
-    });
-    // Withdraw button (settings)
-    document.getElementById('withdrawCapitalSettingsBtn')?.addEventListener('click',()=>{
-      if(currentRole!=="admin") return;
-      const amt = parseFloat(document.getElementById('withdrawAmountSettings').value);
-      if(isNaN(amt)||amt<=0) return alert("Valid amount");
-      if(amt > cashCapital) return alert("Insufficient capital");
-      cashCapital -= amt;
-      saveAll();
-      renderAll();
-      document.getElementById('withdrawAmountSettings').value = '';
-      alert(`Withdrew ₹${amt}`);
-    });
-    document.getElementById('resetAllBtn')?.addEventListener('click',()=>{
-      if(confirm("⚠️ FULL RESET: All data lost")) { customers=[]; loans=[]; transactions=[]; cashCapital=0; saveAll(); renderAll(); alert("Reset done"); }
-    });
-    document.getElementById('loanMethod')?.addEventListener('change',(e)=>{
-      const method = parseInt(e.target.value);
-      const emiDiv = document.getElementById('emiFields');
-      const weeklyField = document.getElementById('weeklyAmountField');
-      const tenureLabel = document.getElementById('tenureLabel');
-      if(method===3) { emiDiv.style.display='block'; weeklyField.style.display='none'; tenureLabel.innerText='Tenure (months)'; }
-      else if(method===4) { emiDiv.style.display='block'; weeklyField.style.display='block'; tenureLabel.innerText='Number of weeks'; }
-      else emiDiv.style.display='none';
-    });
-    document.querySelectorAll('.tab').forEach(tab=>{
-      tab.addEventListener('click',()=>{
-        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-        tab.classList.add('active');
-        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-        document.getElementById(tab.getAttribute('data-tab')).classList.add('active');
-      });
-    });
+    document.getElementById('transactionManagerBtn')?.addEventListener('click', () => { window.location.href = `transations.html?role=${currentRole}`; });
+    document.getElementById('moreDetailsBtn')?.addEventListener('click', () => { window.location.href = 'details.html'; });
+    document.getElementById('addCustomerBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const name = document.getElementById('custName').value.trim(); if(!name) return alert("Name required"); customers.push({ id: Date.now(), name, phone: document.getElementById('custPhone').value.trim(), address: document.getElementById('custAddress').value.trim().slice(0,150) }); saveAll(); renderAll(); document.getElementById('custName').value=''; document.getElementById('custPhone').value=''; document.getElementById('custAddress').value=''; });
+    document.getElementById('createLoanBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const custId = parseInt(document.getElementById('loanCustomerId').value); if(!custId) return alert("Select customer"); const startDate = document.getElementById('loanStartDate').value; if(!startDate) return alert("Start date"); const amount = parseFloat(document.getElementById('loanAmount').value); const rate = parseFloat(document.getElementById('loanInterest').value); const method = parseInt(document.getElementById('loanMethod').value); if(isNaN(amount)||amount<=0) return alert("Valid amount"); if(method!==4 && (isNaN(rate)||rate<0)) return alert("Rate required"); if(amount > cashCapital) return alert(`Insufficient cash. Available: ₹${cashCapital}`); let tenure=null, weeklyAmt=null; if(method===3||method===4){ tenure=parseInt(document.getElementById('loanTenure').value); if(!tenure) return alert(`Enter ${method===3?'months':'weeks'}`); if(method===4){ weeklyAmt=parseFloat(document.getElementById('weeklyInstallment').value); if(!weeklyAmt) return alert("Weekly amount"); } } if(createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmt)) renderAll(); else alert("Creation failed"); });
+    document.getElementById('addTransactionBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const loanId = parseInt(document.getElementById('txnLoanId').value); if(!loanId) return alert("Select loan"); const date = document.getElementById('txnDate').value || new Date().toISOString().slice(0,10); const amount = parseFloat(document.getElementById('txnAmount').value); if(isNaN(amount)||amount<=0) return alert("Valid amount"); const res = addTransaction(loanId, date, amount, document.getElementById('txnRemark').value); if(res.success) renderAll(); else alert(res.msg); });
+    document.getElementById('addCapitalBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const addAmt = parseFloat(document.getElementById('addCapitalInput').value); if(isNaN(addAmt) || addAmt<=0) return alert("Valid amount"); cashCapital += addAmt; addCapitalHistory('add', addAmt, new Date().toISOString().slice(0,10)); saveAll(); renderAll(); document.getElementById('addCapitalInput').value=''; alert(`Added ₹${addAmt}`); });
+    document.getElementById('withdrawCapitalSettingsBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const amt = parseFloat(document.getElementById('withdrawAmountSettings').value); if(isNaN(amt)||amt<=0) return alert("Valid amount"); if(amt > cashCapital) return alert("Insufficient capital"); cashCapital -= amt; addCapitalHistory('withdraw', amt, new Date().toISOString().slice(0,10)); saveAll(); renderAll(); document.getElementById('withdrawAmountSettings').value=''; alert(`Withdrew ₹${amt}`); });
+    document.getElementById('loanMethod')?.addEventListener('change',(e)=>{ const method = parseInt(e.target.value); const emiDiv = document.getElementById('emiFields'); const weeklyField = document.getElementById('weeklyAmountField'); const tenureLabel = document.getElementById('tenureLabel'); if(method===3){ emiDiv.style.display='block'; weeklyField.style.display='none'; tenureLabel.innerText='Tenure (months)'; } else if(method===4){ emiDiv.style.display='block'; weeklyField.style.display='block'; tenureLabel.innerText='Number of weeks'; } else emiDiv.style.display='none'; });
+    document.querySelectorAll('.tab').forEach(tab=>{ tab.addEventListener('click',()=>{ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); document.getElementById(tab.getAttribute('data-tab')).classList.add('active'); }); });
   }
 
-  // Auth
   async function unlockApp() {
     const pwd = document.getElementById('passwordInput').value;
     if(pwd==='9947') { currentRole="admin"; await proceed(); }
     else if(pwd==='4250') { currentRole="viewer"; await proceed(); }
-    else if(pwd==='0000') {
-      document.getElementById('passwordModal').style.display='none';
-      const fakeDiv = document.getElementById('fakeTimeDisplay');
-      fakeDiv.style.display='block';
-      fakeDiv.innerHTML = `<div style="background:white;padding:30px;border-radius:20px;width:80%;margin:auto;"><h2>System Time</h2><p>${new Date().toLocaleString()}</p><button onclick="location.reload()">Back</button></div>`;
-    } else document.getElementById('pwdError').innerText='Wrong password';
+    else if(pwd==='0000') { document.getElementById('passwordModal').style.display='none'; document.getElementById('fakeTimeDisplay').style.display='block'; document.getElementById('fakeTimeDisplay').innerHTML = `<div style="background:white;padding:30px;border-radius:20px;width:80%;margin:auto;"><h2>System Time</h2><p>${new Date().toLocaleString()}</p><button onclick="location.reload()">Back</button></div>`; }
+    else document.getElementById('pwdError').innerText='Wrong password';
   }
   async function proceed() {
     document.getElementById('passwordModal').style.display='none';
