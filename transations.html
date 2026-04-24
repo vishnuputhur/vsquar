@@ -10,136 +10,28 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      background: #f0f4f8;
-      margin: 0;
-      padding: 0;
-      color: #333;
-    }
-    .container {
-      max-width: 100%;
-      width: 85%;
-      margin: 20px auto;
-      background: #fff;
-      padding: 15px;
-      border-radius: 15px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-      text-align: center;
-      color: #0077b6;
-      font-size: 1.7em;
-      margin-top: 0;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-      font-size: 0.85em;
-    }
-    input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      font-size: 0.9em;
-    }
-    /* Ensure select has good width and appears on its own line */
-    .loan-select-wrapper {
-      margin: 10px 0;
-      width: 100%;
-    }
-    #loanSelect {
-      width: 100%;
-      min-width: 60mm;
-      padding: 10px;
-      font-size: 0.9em;
-    }
-    .output {
-      background: #e0f7fa;
-      padding: 10px;
-      margin-top: 15px;
-      border-radius: 8px;
-      text-align: center;
-      font-size: 0.85em;
-    }
-    button {
-      margin-top: 15px;
-      padding: 10px;
-      border: none;
-      border-radius: 8px;
-      background: #00b4d8;
-      color: #fff;
-      font-weight: bold;
-      cursor: pointer;
-      width: 100%;
-      font-size: 0.85em;
-    }
-    button.small-btn {
-      width: auto;
-      padding: 5px 10px;
-      margin: 0 3px;
-      display: inline-block;
-      font-size: 0.7em;
-    }
+    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
+    .container { max-width: 100%; width: 85%; margin: 20px auto; background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h1 { text-align: center; color: #0077b6; font-size: 1.7em; margin-top: 0; }
+    label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; }
+    input, select { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9em; }
+    .loan-select-wrapper { margin: 10px 0; width: 100%; }
+    #loanSelect { width: 100%; min-width: 60mm; padding: 10px; font-size: 0.9em; }
+    .output { background: #e0f7fa; padding: 10px; margin-top: 15px; border-radius: 8px; text-align: center; font-size: 0.85em; }
+    button { margin-top: 15px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85em; }
+    button.small-btn { width: auto; padding: 5px 10px; margin: 0 3px; display: inline-block; font-size: 0.7em; }
     button.danger { background: #dc3545; }
     button.warning { background: #f4a261; }
     button.success { background: #2a9d8f; }
-    .flex-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-      font-size: 0.75em;
-      overflow-x: auto;
-      display: block;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 6px;
-      text-align: center;
-    }
-    th {
-      background: #90e0ef;
-    }
-    .text-muted {
-      color: #666;
-      font-size: 0.7em;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 20px;
-      background: #0077b6;
-      color: #fff;
-      padding: 10px;
-      font-size: 0.75em;
-      border-radius: 8px;
-    }
-    @media (max-width: 600px) {
-      .container { width: 90%; padding: 10px; }
-      #loanSelect { width: 100%; }
-    }
-    .role-badge {
-      text-align: right;
-      font-size: 0.7rem;
-      margin-bottom: 10px;
-      color: #0077b6;
-    }
-    .payment-panel {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 12px;
-      margin-bottom: 20px;
-    }
+    .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.75em; overflow-x: auto; display: block; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+    th { background: #90e0ef; }
+    .text-muted { color: #666; font-size: 0.7em; }
+    .footer { text-align: center; margin-top: 20px; background: #0077b6; color: #fff; padding: 10px; font-size: 0.75em; border-radius: 8px; }
+    @media (max-width: 600px) { .container { width: 90%; padding: 10px; } #loanSelect { width: 100%; } }
+    .role-badge { text-align: right; font-size: 0.7rem; margin-bottom: 10px; color: #0077b6; }
+    .payment-panel { background: #f8f9fa; border-radius: 12px; padding: 12px; margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -164,28 +56,14 @@
   <div id="adminAddBtn" style="display:none; margin:10px 0;">
     <div class="payment-panel" id="paymentPanel">
       <h4>➕ Add Payment</h4>
-      <div id="paymentFields">
-        <!-- Dynamic fields based on loan method -->
-      </div>
+      <div id="paymentFields"></div>
       <button id="addPaymentBtn" class="success">Confirm Payment</button>
     </div>
   </div>
   
   <div style="overflow-x: auto;">
     <table id="transactionTable" style="display:none;">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Planned Date</th>
-          <th>Paid Date</th>
-          <th>Amount (₹)</th>
-          <th>Interest (₹)</th>
-          <th>Principal (₹)</th>
-          <th>Remaining (₹)</th>
-          <th>Remark</th>
-          <th class="action-col">Actions</th>
-        </tr>
-      </thead>
+      <thead><tr><th>#</th><th>Planned Date</th><th>Paid Date</th><th>Amount (₹)</th><th>Interest (₹)</th><th>Principal (₹)</th><th>Remaining (₹)</th><th>Remark</th><th class="action-col">Actions</th></tr></thead>
       <tbody id="tableBody"></tbody>
     </table>
   </div>
@@ -194,7 +72,6 @@
 </div>
 
 <script>
-  // Firebase Config
   const firebaseConfig = {
     apiKey: "AIzaSyCCjWVI1hB3sbu0JiA4viW1BK81xbMML-U",
     authDomain: "csl-calculations.firebaseapp.com",
@@ -238,32 +115,21 @@
   function getCustomer(id) { return customers.find(c => c.id == id); }
   function getLoan(id) { return loans.find(l => l.id == id); }
 
-  // Total expected amount (principal + profit for EMI methods)
   function getTotalExpectedForLoan(loan) {
-    if(loan.method == 4) { // Weekly EMI
-      return (loan.weeklyAmount || 250) * (loan.tenure || 44);
-    } else if(loan.method == 3) { // Monthly EMI
-      return (loan.emiAmount || 0) * (loan.tenure || 1);
-    } else {
-      return loan.principalAmount;
-    }
+    if(loan.method == 4) return (loan.weeklyAmount || 250) * (loan.tenure || 44);
+    else if(loan.method == 3) return (loan.emiAmount || 0) * (loan.tenure || 1);
+    else return loan.principalAmount;
   }
 
-  // Remaining total (principal + future profit)
   function recomputeRemaining(loan) {
     const totalExpected = getTotalExpectedForLoan(loan);
-    const totalPaid = transactions
-      .filter(t => t.loanId == loan.id)
-      .reduce((sum, t) => sum + t.amount, 0);
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
     return Math.max(0, totalExpected - totalPaid);
   }
 
-  // Principal outstanding (original principal minus principalPortion sum)
   function getPrincipalOutstanding(loan) {
     let remaining = loan.principalAmount;
-    transactions.filter(t => t.loanId == loan.id).forEach(t => {
-      remaining -= (t.principalPortion || 0);
-    });
+    transactions.filter(t => t.loanId == loan.id).forEach(t => { remaining -= (t.principalPortion || 0); });
     return Math.max(0, remaining);
   }
 
@@ -271,13 +137,13 @@
     if(!loan) return [];
     const startDate = new Date(loan.startDate);
     let schedule = [];
-    if(loan.method == 3) { // Monthly EMI
+    if(loan.method == 3) {
       for(let i=1; i<=(loan.tenure || 1); i++) {
         let due = new Date(startDate);
         due.setMonth(startDate.getMonth() + i);
         schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.emiAmount });
       }
-    } else if(loan.method == 4) { // Weekly EMI
+    } else if(loan.method == 4) {
       for(let i=1; i<=(loan.tenure || 44); i++) {
         let due = new Date(startDate);
         due.setDate(startDate.getDate() + (i*7));
@@ -351,7 +217,6 @@
       });
     } 
     else {
-      // Non-scheduled loans (Interest only, Flexible)
       let cumulative = 0;
       loanTxns.forEach((txn, idx) => {
         const tr = tbody.insertRow();
@@ -387,7 +252,6 @@
     }
   }
 
-  // Populate loan select with customer name, total amount, and remaining balance
   function populateLoanSelect() {
     const select = document.getElementById('loanSelect');
     select.innerHTML = '<option value="">-- Choose Loan --</option>';
@@ -409,7 +273,6 @@
     };
   }
 
-  // Dynamic payment fields based on loan method
   function updatePaymentFields() {
     const loan = getLoan(currentLoanId);
     const container = document.getElementById('paymentFields');
@@ -420,7 +283,6 @@
     }
     
     if(loan.method === 1) {
-      // Interest Only: separate interest and principal
       container.innerHTML = `
         <label>Interest Portion (₹)</label>
         <input type="number" id="interestPortion" placeholder="Interest amount" step="any" value="0">
@@ -433,7 +295,6 @@
         <small class="text-muted">Total amount = Interest + Principal</small>
       `;
     } else {
-      // Other methods: single amount (auto-split)
       container.innerHTML = `
         <label>Amount (₹)</label>
         <input type="number" id="paymentAmount" placeholder="Enter amount" step="any">
@@ -445,19 +306,16 @@
     }
   }
 
-  // Core payment processing with separate interest/principal for method 1
   async function processPayment(loanId, date, amount, interestPortion, principalPortion, remark) {
     const loan = getLoan(loanId);
     if(!loan) return { success: false, msg: "Loan not found" };
     if(loan.status === 'closed') return { success: false, msg: "Loan already closed" };
     
-    // For method 1 (Interest Only), use provided portions
     if(loan.method === 1) {
       if(interestPortion < 0 || principalPortion < 0) return { success: false, msg: "Portions cannot be negative" };
       const total = interestPortion + principalPortion;
       if(total <= 0) return { success: false, msg: "Total amount must be positive" };
       
-      // Check principal portion does not exceed outstanding principal
       const principalOut = getPrincipalOutstanding(loan);
       if(principalPortion > principalOut) {
         return { success: false, msg: `Principal portion cannot exceed outstanding principal ₹${principalOut}` };
@@ -476,7 +334,6 @@
       transactions.push(newTxn);
       cashCapital += total;
       
-      // Update loan status based on total expected
       const totalExpected = getTotalExpectedForLoan(loan);
       const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
       if(totalPaid >= totalExpected) loan.status = 'closed';
@@ -487,12 +344,11 @@
       return { success: true };
     }
     
-    // For other methods (2,3,4): use automatic calculation
     if(amount <= 0) return { success: false, msg: "Amount must be positive" };
     
     let interestPortionAuto = 0, principalPortionAuto = 0;
     
-    if(loan.method === 4) { // Weekly EMI: principal first, then profit
+    if(loan.method === 4) {
       let principalRemaining = getPrincipalOutstanding(loan);
       if (principalRemaining > 0) {
         if (amount <= principalRemaining) {
@@ -507,7 +363,7 @@
         interestPortionAuto = amount;
       }
     } 
-    else if(loan.method === 3) { // Monthly EMI
+    else if(loan.method === 3) {
       const monthlyRate = loan.interestRate / 100;
       let principalRemaining = getPrincipalOutstanding(loan);
       let interestDue = principalRemaining * monthlyRate;
@@ -521,7 +377,7 @@
         if(principalPortionAuto > principalRemaining) principalPortionAuto = principalRemaining;
       }
     }
-    else { // method 2 (Flexible): interest accrual based on days
+    else { // method 2 (Flexible)
       let principalRemaining = getPrincipalOutstanding(loan);
       const monthlyRate = loan.interestRate / 100;
       const loanTxns = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -567,7 +423,6 @@
     return { success: true };
   }
 
-  // Admin actions
   window.payPlanned = async (plannedDate, expectedAmount) => {
     const todayDate = new Date().toISOString().slice(0,10);
     const remark = prompt("Enter remark (optional):", "");
@@ -585,7 +440,6 @@
     if(idx > -1) {
       cashCapital -= transactions[idx].amount;
       transactions.splice(idx, 1);
-      // Re-evaluate loan status
       const loan = getLoan(currentLoanId);
       if(loan) {
         const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
@@ -605,7 +459,6 @@
     });
   }
 
-  // Add payment button handler with success alert
   document.getElementById('addPaymentBtn').onclick = async () => {
     const loan = getLoan(currentLoanId);
     if(!loan) { alert("Select a loan first"); return; }
@@ -638,7 +491,7 @@
     }
   };
 
-  // PDF Export: show "Total Amount"
+  // PDF Export – with "Total Amount" label and closed message
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -653,12 +506,18 @@
     const dateStr = today.toISOString().slice(0,10);
     const fileName = `${customerName}_${dateStr}.pdf`;
     const totalExpected = getTotalExpectedForLoan(loan);
+    const remaining = recomputeRemaining(loan);
     
     doc.setFontSize(18);
     doc.text(`Payment Receipt - ${customerName}`, 14, 20);
     doc.setFontSize(10);
     doc.text(`Total Amount: ₹${totalExpected}`, 14, 30);
-    doc.text(`Generated on: ${today.toLocaleString()}`, 14, 37);
+    if (remaining <= 0.01) {
+      doc.text("✅ Loan Closed", 14, 37);
+      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 44);
+    } else {
+      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 37);
+    }
     
     const rows = [];
     document.querySelectorAll('#tableBody tr').forEach(tr => {
@@ -672,8 +531,9 @@
       rows.push(rowData);
     });
     
+    let startY = remaining <= 0.01 ? 50 : 43;
     doc.autoTable({
-      startY: 44,
+      startY: startY,
       head: [['#', 'Planned', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Remaining', 'Remark']],
       body: rows,
       theme: 'striped',
@@ -687,7 +547,6 @@
   document.getElementById('homeBtn').onclick = () => { window.location.href = 'index.html'; };
   document.getElementById('refreshBtn').onclick = () => loadData();
 
-  // Init
   currentRole = getRoleFromUrl();
   document.getElementById('roleBadge').innerText = currentRole === 'admin' ? "Admin Mode" : "Viewer Mode";
   if(currentRole === 'admin') {
