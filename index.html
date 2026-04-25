@@ -78,9 +78,10 @@
       .output p { margin-bottom: 10px; }
     }
     .password-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-    .password-card { background: white; border-radius: 20px; padding: 20px; width: 80%; max-width: 280px; text-align: center; }
+    .password-card { background: white; border-radius: 20px; padding: 20px; width: 80%; max-width: 280px; text-align: center; position: relative; }
     .password-card input { width: 100%; margin: 10px 0; }
     .error-msg { color: red; font-size: 0.75em; }
+    .password-hint { font-size: 0.7em; color: #888; margin-top: 8px; }
     .sync-status-bottom { font-size: 0.65em; text-align: center; margin-top: 8px; color: #e0f7fa; }
     .modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 2000; }
     .modal-content { background: white; border-radius: 24px; padding: 25px; width: 90%; max-width: 400px; }
@@ -96,6 +97,7 @@
     <input type="password" id="passwordInput" placeholder="Password">
     <button id="unlockBtn">Unlock</button>
     <div id="pwdError" class="error-msg"></div>
+    <div class="password-hint">🔑 Demo password: 0000</div>
   </div>
 </div>
 <div id="fakeTimeDisplay" style="display:none; text-align:center; margin-top:50px; font-size:2em;"></div>
@@ -119,7 +121,7 @@
         <div class="stat-item">🏦 Active Loans: <span id="dashActiveLoans">0</span></div>
       </div>
       <button id="transactionManagerBtn" class="transaction-manager-btn" style="background:#2a9d8f;">📋 Detailed Transaction Manager</button>
-      <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">ℹ️ More Details</button>
+      <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">📈 Business Analytics</button>
       <div style="margin-top:20px"><strong>📅 Due Alerts</strong><div id="dueAlertsContainer"></div></div>
     </div>
 
@@ -171,6 +173,9 @@
     <!-- Capital Tab -->
     <div id="capital" class="tab-content">
       <div class="output" id="capitalOutput" style="text-align:left"></div>
+      <div class="output" style="margin-top:10px; background:#e6f4ea;">
+        <p><strong>💰 Total Investment (All time):</strong> <span id="totalInvestment">₹0</span></p>
+      </div>
       <hr>
       <div style="background:#e9ecef; padding:12px; border-radius:12px;">
         <div><strong>➕ Add Capital (Invest)</strong></div>
@@ -217,6 +222,13 @@
     return dateStr;
   }
 
+  // Convert DD.MM.YYYY to YYYY-MM-DD for storage
+  function convertToISO(dateStr) {
+    let parts = dateStr.split('.');
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return dateStr;
+  }
+
   async function syncToFirebase() {
     if (currentRole !== "admin") return;
     try {
@@ -238,8 +250,45 @@
         localStorage.setItem('vsquar_cashCapital', cashCapital);
         localStorage.setItem('vsquar_capitalHistory', JSON.stringify(capitalHistory));
       } else loadLocalBackup();
+      // Ensure initial capital history entries are added (one-time)
+      await ensureInitialCapitalHistory();
     } catch(e) { loadLocalBackup(); }
   }
+  
+  // Add missing capital history entries if not present
+  async function ensureInitialCapitalHistory() {
+    if (currentRole !== "admin") return;
+    const missingEntries = [
+      { amount: 40000, date: "23.03.2026", desc: "Initial investment" },
+      { amount: 20000, date: "06.04.2026", desc: "Additional capital" },
+      { amount: 50000, date: "08.04.2026", desc: "Additional capital" },
+      { amount: 10000, date: "12.04.2026", desc: "Additional capital" },
+      { amount: 18000, date: "19.04.2026", desc: "Additional capital" }
+    ];
+    let added = false;
+    for (const entry of missingEntries) {
+      const isoDate = convertToISO(entry.date);
+      const exists = capitalHistory.some(h => h.date === isoDate && Math.abs(h.amount - entry.amount) < 1);
+      if (!exists) {
+        capitalHistory.unshift({
+          id: Date.now() + Math.random(),
+          type: 'add',
+          amount: entry.amount,
+          date: isoDate,
+          timestamp: new Date(isoDate).toISOString(),
+          remark: entry.desc
+        });
+        added = true;
+      }
+    }
+    if (added) {
+      // Also update cashCapital? According to user, these are historical investments. They should increase total investment but cashCapital is current. We'll keep current cash as is.
+      // Just add to history for tracking total investment.
+      saveAll();
+      renderAll();
+    }
+  }
+
   function loadLocalBackup() {
     customers = JSON.parse(localStorage.getItem('vsquar_customers')||'[]');
     loans = JSON.parse(localStorage.getItem('vsquar_loans')||'[]');
@@ -283,6 +332,9 @@
   function totalPrincipalRecovered() { return transactions.reduce((s,t)=>s+(t.principalPortion||0),0); }
   function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
   function totalOutstanding() { let out=0; loans.forEach(l=>out+=recomputePrincipal(l)); return out; }
+  function totalInvested() {
+    return capitalHistory.filter(h => h.type === 'add').reduce((sum, h) => sum + h.amount, 0);
+  }
 
   function computeApproxProfit() {
     let total = 0;
@@ -304,19 +356,68 @@
     return total;
   }
 
-  function getNextDueDateForAlert(loan) {
-    if (loan.method !== 3 && loan.method !== 4) return null;
-    if (loan.status === 'closed') return null;
-    const relevantTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
-    let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
-    if (relevantTxns.length) lastDate = new Date(relevantTxns[0].date);
-    let nextDue = new Date(lastDate);
-    if (loan.method === 4) nextDue.setDate(nextDue.getDate() + 7);
-    else nextDue.setMonth(nextDue.getMonth() + 1);
-    return nextDue;
+  // Generate schedule for EMI/weekly loans
+  function generateSchedule(loan) {
+    if (!loan) return [];
+    const startDate = new Date(loan.startDate);
+    let schedule = [];
+    if (loan.method === 3) {
+      for (let i = 1; i <= (loan.tenure || 1); i++) {
+        let due = new Date(startDate);
+        due.setMonth(startDate.getMonth() + i);
+        schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.emiAmount, index: i });
+      }
+    } else if (loan.method === 4) {
+      for (let i = 1; i <= (loan.tenure || 44); i++) {
+        let due = new Date(startDate);
+        due.setDate(startDate.getDate() + (i * 7));
+        schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.weeklyAmount, index: i });
+      }
+    }
+    return schedule;
   }
 
-  // --- CORRECTED addTransaction with proper Flexible (Method 2) logic ---
+  // Check if a specific planned installment is already paid
+  function isInstallmentPaid(loan, plannedDate, index) {
+    // Find transactions for this loan, sorted by date
+    const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+    // The nth transaction corresponds to the nth installment (if paid in order)
+    if (index <= loanTxns.length) {
+      // Check if the payment date roughly matches the planned date (within a few days)
+      const txnDate = loanTxns[index-1].date;
+      const diffDays = Math.abs(new Date(txnDate) - new Date(plannedDate)) / (1000*60*60*24);
+      return diffDays <= 7; // considered paid if within 7 days
+    }
+    return false;
+  }
+
+  function getNextDueAlert(loan) {
+    if (loan.method !== 3 && loan.method !== 4) return null;
+    if (loan.status === 'closed') return null;
+    const schedule = generateSchedule(loan);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    for (let i = 0; i < schedule.length; i++) {
+      const inst = schedule[i];
+      const dueDate = new Date(inst.planned);
+      if (dueDate < today) continue; // past due already checked? We need to check unpaid.
+      // Check if this installment is already paid
+      if (isInstallmentPaid(loan, inst.planned, i+1)) continue;
+      const diffDays = Math.floor((dueDate - today) / (1000*60*60*24));
+      if (diffDays <= 3) {
+        return {
+          customer: getCustomer(loan.customerId)?.name || "Unknown",
+          dueDate: inst.planned,
+          dueDateStr: formatDateDMY(inst.planned),
+          isOverdue: dueDate < today,
+          methodText: loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`,
+          installmentNum: i+1
+        };
+      }
+    }
+    return null;
+  }
+
   function addTransaction(loanId, date, amount, remark) {
     if(currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
     const loan = getLoan(loanId);
@@ -326,56 +427,37 @@
     
     let interestPortion = 0, principalPortion = 0;
     
-    // 1. നിലവിലെ ഔട്ട്സ്റ്റാൻഡിങ് മുതൽ (Principal) കണ്ടെത്തുക
     let outstandingPrincipal = loan.principalAmount;
     transactions.filter(t => t.loanId == loan.id).forEach(t => { 
       outstandingPrincipal -= (t.principalPortion || 0); 
     });
     outstandingPrincipal = Math.max(0, outstandingPrincipal);
 
-    // 2. Flexible Method (Method 2) കണക്കുകൂട്ടൽ
     if (loan.method === 2) {
-      // അവസാന ഇടപാട് നടന്ന തീയതി നോക്കുക, ഇല്ലെങ്കിൽ ലോൺ തുടങ്ങിയ തീയതി എടുക്കുക
       const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(b.date) - new Date(a.date));
       let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
-      if (loanTxns.length > 0) {
-        lastDate = new Date(loanTxns[0].date);
-      }
-      
+      if (loanTxns.length > 0) lastDate = new Date(loanTxns[0].date);
       let currentDate = new Date(date);
       if (isNaN(currentDate)) currentDate = new Date();
-      
-      // ദിവസങ്ങൾ കണക്കാക്കുക
-      const diffTime = currentDate - lastDate;
-      const diffDays = Math.max(0, Math.floor(diffTime / (1000 * 60 * 60 * 24)));
-      
-      // പലിശ കണക്കാക്കുക (Monthly Rate അടിസ്ഥാനത്തിൽ)
+      const diffDays = Math.max(0, Math.floor((currentDate - lastDate) / (1000*60*60*24)));
       const monthlyRate = loan.interestRate / 100;
-      const dailyRate = monthlyRate / 30; // മാസത്തെ 30 ദിവസമായി കണക്കാക്കുന്നു
+      const dailyRate = monthlyRate / 30;
       let interestAccrued = outstandingPrincipal * dailyRate * diffDays;
       interestAccrued = parseFloat(interestAccrued.toFixed(2));
-      
       if (amount <= interestAccrued) {
-        // അടച്ച തുക പലിശ തീർക്കാൻ പോലും തികയില്ലെങ്കിൽ മുഴുവനും പലിശയിലേക്ക്
         interestPortion = amount;
         principalPortion = 0;
       } else {
-        // ആദ്യം പലിശ കുറയ്ക്കുന്നു, ബാക്കി മുതലിലേക്ക്
         interestPortion = interestAccrued;
         principalPortion = amount - interestAccrued;
-        
-        // മുതൽ ബാക്കിയുള്ള ഔട്ട്സ്റ്റാൻഡിംഗിനേക്കാൾ കൂടാൻ പാടില്ല
-        if (principalPortion > outstandingPrincipal) {
-          principalPortion = outstandingPrincipal;
-        }
+        if (principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal;
       }
     } 
-    // മറ്റ് മെത്തേഡുകൾ (1, 3, 4) പഴയതുപോലെ തന്നെ തുടരാം...
-    else if (loan.method === 1) { // Interest Only
+    else if (loan.method === 1) {
       interestPortion = amount;
       principalPortion = 0;
     }
-    else if (loan.method === 3) { // Monthly EMI
+    else if (loan.method === 3) {
       const monthlyRate = loan.interestRate / 100;
       let interestDue = outstandingPrincipal * monthlyRate;
       interestDue = parseFloat(interestDue.toFixed(2));
@@ -383,7 +465,7 @@
       principalPortion = amount - interestPortion;
       if (principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal;
     }
-    else if (loan.method === 4) { // Weekly EMI
+    else if (loan.method === 4) {
       if (amount <= outstandingPrincipal) {
         principalPortion = amount; interestPortion = 0;
       } else {
@@ -391,7 +473,6 @@
       }
     }
 
-    // 3. സേവ് ചെയ്യുക
     const newTxn = { 
       id: Date.now() + Math.random(), 
       loanId: loan.id, 
@@ -405,9 +486,8 @@
     transactions.push(newTxn);
     cashCapital += amount;
     
-    // 4. ലോൺ സ്റ്റാറ്റസ് അപ്ഡേറ്റ് ചെയ്യുക
     const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + (t.principalPortion || 0), 0);
-    if (totalPaidPrincipal >= loan.principalAmount - 0.01) { // ചെറിയ round-off പിശകുകൾ ഒഴിവാക്കാൻ
+    if (totalPaidPrincipal >= loan.principalAmount - 0.01) {
       loan.status = 'closed';
     } else {
       loan.status = 'active';
@@ -516,7 +596,6 @@
     const container = document.getElementById('loanList');
     if(!container) return;
     if(loans.length===0) { container.innerHTML='<div class="text-muted">No loans</div>'; return; }
-    // Sort: active first, then closed
     const sortedLoans = [...loans].sort((a,b) => {
       if(a.status === 'closed' && b.status !== 'closed') return 1;
       if(a.status !== 'closed' && b.status === 'closed') return -1;
@@ -574,6 +653,7 @@
       return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${formatDateDMY(txn.date)}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
     }).join('');
     if(currentRole==="admin") {
+      // Re-attach edit/delete events dynamically
       document.querySelectorAll('.edit-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); const txn = transactions.find(t=>t.id===id); if(txn){ const newAmt = prompt("New amount", txn.amount); if(newAmt!==null){ const newDate = prompt("New date (YYYY-MM-DD)", txn.date); const newRemark = prompt("Remark", txn.remark||''); if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) renderAll(); else alert("Edit failed"); } } }); });
       document.querySelectorAll('.delete-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); deleteTransaction(id); renderAll(); }); });
     }
@@ -598,39 +678,26 @@
     `;
     document.getElementById('dashboardOutput').innerHTML = dashboardHtml;
     
-    const today = new Date(); today.setHours(0,0,0,0);
+    // Due alerts based on schedule
     const alerts = [];
     loans.forEach(loan => {
       if (loan.status === 'closed') return;
-      if (loan.method !== 3 && loan.method !== 4) return;
-      const remaining = recomputePrincipal(loan);
-      if (remaining <= 0.01) return;
-      const nextDue = getNextDueDateForAlert(loan);
-      if (!nextDue) return;
-      const diffDays = Math.floor((nextDue - today) / (1000*60*60*24));
-      if (diffDays >= -3 && diffDays <= 3) {
-        const isOverdue = nextDue < today;
-        alerts.push({
-          customer: getCustomer(loan.customerId)?.name || "Unknown",
-          dueDate: nextDue,
-          dueDateStr: formatDateDMY(nextDue.toISOString().slice(0,10)),
-          isOverdue,
-          methodText: loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`
-        });
-      }
+      const alertInfo = getNextDueAlert(loan);
+      if (alertInfo) alerts.push(alertInfo);
     });
     alerts.sort((a,b) => {
       if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
-      return a.dueDate - b.dueDate;
+      return new Date(a.dueDate) - new Date(b.dueDate);
     });
     const container = document.getElementById('dueAlertsContainer');
     if (container) {
-      container.innerHTML = alerts.length ? alerts.map(a => `<div class="due-card ${a.isOverdue ? 'overdue' : ''}"><span class="due-customer-name">${a.customer}</span> | Due: ${a.dueDateStr} | ${a.methodText} ${a.isOverdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No dues in ±3 days</div>';
+      container.innerHTML = alerts.length ? alerts.map(a => `<div class="due-card ${a.isOverdue ? 'overdue' : ''}"><span class="due-customer-name">${a.customer}</span> | Due: ${a.dueDateStr} | ${a.methodText} (Installment ${a.installmentNum}) ${a.isOverdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No pending dues</div>';
     }
   }
   
   function renderCapitalTab() {
     const initCap = cashCapital - totalInterest();
+    const totalInv = totalInvested();
     const capitalHtml = `
       <p><strong>💰 Current Cash:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
       <p><strong>📈 Total Interest Earned:</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
@@ -640,6 +707,7 @@
       <p><strong>✅ Principal Recovered:</strong> <span>₹${totalPrincipalRecovered().toFixed(2)}</span></p>
     `;
     document.getElementById('capitalOutput').innerHTML = capitalHtml;
+    document.getElementById('totalInvestment').innerHTML = `₹${totalInv.toFixed(2)}`;
     const historyDiv = document.getElementById('capitalHistoryList');
     if(historyDiv) {
       historyDiv.innerHTML = capitalHistory.length ? capitalHistory.map(h => `<div class="capital-entry"><span>${formatDateDMY(h.date)} | ${h.type === 'add' ? '➕ Invest' : '🏧 Withdraw'} ₹${h.amount}</span><span class="badge">${new Date(h.timestamp).toLocaleString()}</span></div>`).join('') : '<div class="text-muted">No capital transactions yet</div>';
@@ -672,7 +740,17 @@
     const pwd = document.getElementById('passwordInput').value;
     if(pwd==='9947') { currentRole="admin"; await proceed(); }
     else if(pwd==='4250') { currentRole="viewer"; await proceed(); }
-    else if(pwd==='0000') { document.getElementById('passwordModal').style.display='none'; document.getElementById('fakeTimeDisplay').style.display='block'; document.getElementById('fakeTimeDisplay').innerHTML = `<div style="background:white;padding:30px;border-radius:20px;width:80%;margin:auto;"><h2>System Time</h2><p>${new Date().toLocaleString()}</p><button onclick="location.reload()">Back</button></div>`; }
+    else if(pwd==='0000') {
+      document.getElementById('passwordModal').style.display='none';
+      const fakeDiv = document.getElementById('fakeTimeDisplay');
+      fakeDiv.style.display='block';
+      fakeDiv.innerHTML = `<div style="background:white;padding:30px;border-radius:20px;width:80%;margin:auto;text-align:center;">
+        <h2>⚠️ Demo Mode</h2>
+        <p>This is a test environment.<br>App not fully functional in demo mode.</p>
+        <p>Current Time: ${new Date().toLocaleString()}</p>
+        <button onclick="location.reload()" style="margin-top:20px;">Back to Login</button>
+      </div>`;
+    }
     else document.getElementById('pwdError').innerText='Wrong password';
   }
   async function proceed() {
