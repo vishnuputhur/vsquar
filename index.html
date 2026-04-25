@@ -222,11 +222,42 @@
     return dateStr;
   }
 
-  // Convert DD.MM.YYYY to YYYY-MM-DD for storage
   function convertToISO(dateStr) {
     let parts = dateStr.split('.');
     if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
     return dateStr;
+  }
+
+  // Generate next loan number (e.g., 001, 002, ...)
+  function getNextLoanNumber() {
+    let maxNum = 0;
+    loans.forEach(loan => {
+      if (loan.loanNumber) {
+        let num = parseInt(loan.loanNumber, 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+    let next = maxNum + 1;
+    return next.toString().padStart(3, '0');
+  }
+
+  // Assign missing loan numbers to existing loans (based on creation order or id)
+  async function assignMissingLoanNumbers() {
+    let changed = false;
+    const loansWithoutNumber = loans.filter(l => !l.loanNumber);
+    if (loansWithoutNumber.length === 0) return;
+    // Sort by id (oldest first) to assign sequentially
+    loansWithoutNumber.sort((a,b) => a.id - b.id);
+    let currentNumber = 1;
+    for (let loan of loansWithoutNumber) {
+      loan.loanNumber = currentNumber.toString().padStart(3, '0');
+      currentNumber++;
+      changed = true;
+    }
+    if (changed) {
+      await saveAll();
+      renderAll();
+    }
   }
 
   async function syncToFirebase() {
@@ -250,12 +281,11 @@
         localStorage.setItem('vsquar_cashCapital', cashCapital);
         localStorage.setItem('vsquar_capitalHistory', JSON.stringify(capitalHistory));
       } else loadLocalBackup();
-      // Ensure initial capital history entries are added (one-time)
+      await assignMissingLoanNumbers();
       await ensureInitialCapitalHistory();
     } catch(e) { loadLocalBackup(); }
   }
   
-  // Add missing capital history entries if not present
   async function ensureInitialCapitalHistory() {
     if (currentRole !== "admin") return;
     const missingEntries = [
@@ -282,8 +312,6 @@
       }
     }
     if (added) {
-      // Also update cashCapital? According to user, these are historical investments. They should increase total investment but cashCapital is current. We'll keep current cash as is.
-      // Just add to history for tracking total investment.
       saveAll();
       renderAll();
     }
@@ -356,7 +384,6 @@
     return total;
   }
 
-  // Generate schedule for EMI/weekly loans
   function generateSchedule(loan) {
     if (!loan) return [];
     const startDate = new Date(loan.startDate);
@@ -377,16 +404,12 @@
     return schedule;
   }
 
-  // Check if a specific planned installment is already paid
   function isInstallmentPaid(loan, plannedDate, index) {
-    // Find transactions for this loan, sorted by date
     const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
-    // The nth transaction corresponds to the nth installment (if paid in order)
     if (index <= loanTxns.length) {
-      // Check if the payment date roughly matches the planned date (within a few days)
       const txnDate = loanTxns[index-1].date;
       const diffDays = Math.abs(new Date(txnDate) - new Date(plannedDate)) / (1000*60*60*24);
-      return diffDays <= 7; // considered paid if within 7 days
+      return diffDays <= 7;
     }
     return false;
   }
@@ -400,8 +423,7 @@
     for (let i = 0; i < schedule.length; i++) {
       const inst = schedule[i];
       const dueDate = new Date(inst.planned);
-      if (dueDate < today) continue; // past due already checked? We need to check unpaid.
-      // Check if this installment is already paid
+      if (dueDate < today) continue;
       if (isInstallmentPaid(loan, inst.planned, i+1)) continue;
       const diffDays = Math.floor((dueDate - today) / (1000*60*60*24));
       if (diffDays <= 3) {
@@ -411,7 +433,8 @@
           dueDateStr: formatDateDMY(inst.planned),
           isOverdue: dueDate < today,
           methodText: loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`,
-          installmentNum: i+1
+          installmentNum: i+1,
+          loanNumber: loan.loanNumber
         };
       }
     }
@@ -506,7 +529,20 @@
       emi = amount * r * Math.pow(1+r, tenure) / (Math.pow(1+r, tenure)-1);
       emi = Math.round(emi);
     } else if(method === 4) { weeklyAmt = weeklyAmount; if(!weeklyAmt || weeklyAmt <=0) return false; }
-    const newLoan = { id: Date.now(), customerId: custId, principalAmount: amount, interestRate: rate, method, status: 'active', startDate, emiAmount: emi, tenure: tenure || null, weeklyAmount: weeklyAmt };
+    const newLoanNumber = getNextLoanNumber();
+    const newLoan = { 
+      id: Date.now(), 
+      customerId: custId, 
+      principalAmount: amount, 
+      interestRate: rate, 
+      method, 
+      status: 'active', 
+      startDate, 
+      emiAmount: emi, 
+      tenure: tenure || null, 
+      weeklyAmount: weeklyAmt,
+      loanNumber: newLoanNumber
+    };
     loans.push(newLoan);
     cashCapital -= amount;
     saveAll();
@@ -611,7 +647,7 @@
       else methodDesc=`Weekly EMI ₹${loan.weeklyAmount} × ${loan.tenure} weeks`;
       const closedBadge = loan.status === 'closed' ? ' | ✅ CLOSED' : '';
       return `<div class="list-item" data-loan-id="${loan.id}">
-        <div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">Amount: ₹${loan.principalAmount}</span></div>
+        <div class="flex-row"><strong>${cust?cust.name:'Unknown'} (Loan #${loan.loanNumber})</strong><span class="badge">Amount: ₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${formatDateDMY(loan.startDate)} | ${methodDesc}</div>
         <div>Remaining: ₹${out.toFixed(2)} | Status: ${loan.status==='closed'?'Closed':'Active'}${closedBadge}</div>
         <div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button></div>
@@ -619,7 +655,12 @@
     }).join('');
     document.querySelectorAll('.close-loan').forEach(btn=>{ btn.addEventListener('click', (e)=>{ const id = parseInt(btn.getAttribute('data-id')); showCloseLoanModal(id); }); });
     const txnLoan = document.getElementById('txnLoanId');
-    if(txnLoan && currentRole==="admin") txnLoan.innerHTML = '<option value="">-- select loan --</option>'+loans.map(l=>`<option value="${l.id}">${getCustomer(l.customerId)?.name||'N/A'} - Amount: ₹${l.principalAmount}</option>`).join('');
+    if(txnLoan && currentRole==="admin") {
+      txnLoan.innerHTML = '<option value="">-- select loan --</option>' + loans.map(l => {
+        const cust = getCustomer(l.customerId);
+        return `<option value="${l.id}">#${l.loanNumber} - ${cust?cust.name:'N/A'} (₹${l.principalAmount})</option>`;
+      }).join('');
+    }
   }
   
   function showCloseLoanModal(loanId) {
@@ -629,7 +670,7 @@
     if(remaining <= 0.01) { loan.status = 'closed'; saveAll(); renderAll(); alert("Loan already closed"); return; }
     const modalDiv = document.createElement('div');
     modalDiv.className = 'modal';
-    modalDiv.innerHTML = `<div class="modal-content"><h3>Close Loan</h3><p>Remaining: ₹${remaining.toFixed(2)}</p><label>Closing Amount (₹)</label><input type="number" id="closeAmount"><label>Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}"><div class="flex-btns"><button id="closeConfirmBtn">Confirm</button><button id="closeCancelBtn">Cancel</button></div></div>`;
+    modalDiv.innerHTML = `<div class="modal-content"><h3>Close Loan #${loan.loanNumber}</h3><p>Remaining: ₹${remaining.toFixed(2)}</p><label>Closing Amount (₹)</label><input type="number" id="closeAmount"><label>Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}"><div class="flex-btns"><button id="closeConfirmBtn">Confirm</button><button id="closeCancelBtn">Cancel</button></div></div>`;
     document.body.appendChild(modalDiv);
     modalDiv.querySelector('#closeConfirmBtn').onclick = ()=>{
       const closeAmount = parseFloat(modalDiv.querySelector('#closeAmount').value);
@@ -650,10 +691,9 @@
       const cust = loan ? getCustomer(loan.customerId) : null;
       let actionBtns = '';
       if(currentRole==="admin") actionBtns = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button><button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>`;
-      return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'}</strong><span class="badge">${formatDateDMY(txn.date)}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
+      return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'} (Loan #${loan?.loanNumber || '?'})</strong><span class="badge">${formatDateDMY(txn.date)}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
     }).join('');
     if(currentRole==="admin") {
-      // Re-attach edit/delete events dynamically
       document.querySelectorAll('.edit-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); const txn = transactions.find(t=>t.id===id); if(txn){ const newAmt = prompt("New amount", txn.amount); if(newAmt!==null){ const newDate = prompt("New date (YYYY-MM-DD)", txn.date); const newRemark = prompt("Remark", txn.remark||''); if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) renderAll(); else alert("Edit failed"); } } }); });
       document.querySelectorAll('.delete-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); deleteTransaction(id); renderAll(); }); });
     }
@@ -678,7 +718,6 @@
     `;
     document.getElementById('dashboardOutput').innerHTML = dashboardHtml;
     
-    // Due alerts based on schedule
     const alerts = [];
     loans.forEach(loan => {
       if (loan.status === 'closed') return;
@@ -691,7 +730,7 @@
     });
     const container = document.getElementById('dueAlertsContainer');
     if (container) {
-      container.innerHTML = alerts.length ? alerts.map(a => `<div class="due-card ${a.isOverdue ? 'overdue' : ''}"><span class="due-customer-name">${a.customer}</span> | Due: ${a.dueDateStr} | ${a.methodText} (Installment ${a.installmentNum}) ${a.isOverdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No pending dues</div>';
+      container.innerHTML = alerts.length ? alerts.map(a => `<div class="due-card ${a.isOverdue ? 'overdue' : ''}"><span class="due-customer-name">${a.customer}</span> | Loan #${a.loanNumber} | Due: ${a.dueDateStr} | ${a.methodText} (Inst.${a.installmentNum}) ${a.isOverdue ? '⚠️ OVERDUE' : ''}</div>`).join('') : '<div class="text-muted">No pending dues</div>';
     }
   }
   
