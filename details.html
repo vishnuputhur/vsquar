@@ -2,239 +2,417 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vsquar · Detailed Analytics (Viewer)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>Vsquar · Business Analytics</title>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    :root {
-      --primary: #0077b6;
-      --secondary: #00b4d8;
-      --bg: #f0f4f8;
-      --white: #ffffff;
-      --text: #333;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      padding: 15px;
+      color: #333;
     }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); }
-    .header { text-align: center; margin-bottom: 25px; padding: 10px; background: var(--primary); color: white; border-radius: 12px; }
-    .nav-btn { background: white; color: var(--primary); border: none; padding: 8px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 15px; }
-    
-    .grid-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-    .card { background: var(--white); padding: 20px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-    .card h2 { margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--bg); padding-bottom: 10px; font-size: 1.2em; }
-    
-    .stat-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
-    .stat-row:last-child { border: none; }
-    .stat-label { font-weight: 500; color: #666; }
-    .stat-value { font-weight: bold; color: var(--primary); }
-    .profit-value { color: #2d6a4f; }
-
-    table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin-top: 10px; }
-    th { text-align: left; background: var(--bg); padding: 10px; color: var(--primary); }
-    td { padding: 10px; border-bottom: 1px solid #eee; }
-    .badge { padding: 3px 8px; border-radius: 10px; font-size: 0.8em; font-weight: bold; }
-    .bg-active { background: #e3f2fd; color: #0077b6; }
-    .bg-closed { background: #e8f5e9; color: #2e7d32; }
-
-    #syncStatus { font-size: 0.8em; text-align: center; margin-bottom: 10px; color: #555; }
-    .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+    .header {
+      text-align: center;
+      background: #0077b6;
+      color: white;
+      padding: 15px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .header h1 { font-size: 1.6rem; margin-bottom: 5px; }
+    .header p { font-size: 0.75rem; opacity: 0.9; }
+    .nav-btn {
+      background: white;
+      color: #0077b6;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 30px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: white;
+      padding: 12px;
+      border-radius: 18px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    .stat-card .label { font-size: 0.7rem; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-card .value { font-size: 1.5rem; font-weight: bold; color: #0077b6; margin-top: 5px; }
+    .stat-card .sub { font-size: 0.7rem; color: #2e7d32; margin-top: 4px; }
+    .chart-container {
+      background: white;
+      border-radius: 20px;
+      padding: 15px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .chart-title {
+      font-size: 1rem;
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: #0077b6;
+      border-left: 4px solid #00b4d8;
+      padding-left: 10px;
+    }
+    canvas { max-height: 220px; width: 100%; }
+    .compact-table {
+      background: white;
+      border-radius: 20px;
+      padding: 12px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+    .compact-table h3 {
+      font-size: 1rem;
+      margin-bottom: 12px;
+      color: #0077b6;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+    }
+    th, td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    th { color: #0077b6; font-weight: 600; }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 30px;
+      font-size: 0.7rem;
+      font-weight: bold;
+    }
+    .badge-active { background: #e3f2fd; color: #0077b6; }
+    .badge-closed { background: #e8f5e9; color: #2e7d32; }
+    .footer {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #666;
+      margin-top: 20px;
+      padding: 10px;
+    }
+    @media (max-width: 550px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .stat-card .value { font-size: 1.2rem; }
+    }
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0077b6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 40px auto;
+    }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .sync-status {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #2e7d32;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>Vsquar Detailed Analytics</h1>
-  <p>Viewer Mode · Read Only</p>
+  <h1>📊 Vsquar Analytics</h1>
+  <p>Real-time Business Intelligence</p>
 </div>
 
-<button class="nav-btn" onclick="window.history.back()">← Back to Home</button>
-<div id="syncStatus">Fetching latest cloud data...</div>
+<button class="nav-btn" onclick="window.location.href='index.html'">← Back to Dashboard</button>
+<div id="syncStatus" class="sync-status">🔁 Syncing with cloud...</div>
+<div id="loader" class="loader"></div>
 
-<div id="loading" class="loader"></div>
-
-<div id="content" style="display:none;">
-  <div class="grid-container">
-    
-    <div class="card">
-      <h2>💰 Financial Overview</h2>
-      <div class="stat-row">
-        <span class="stat-label">Total Turnover (Business Size)</span>
-        <span class="stat-value" id="turnover">₹0.00</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Total Interest Earned (Net Profit)</span>
-        <span class="stat-value profit-value" id="totalProfit">₹0.00</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Partner's Share (50% each)</span>
-        <span class="stat-value" id="partnerShare">₹0.00</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Current Cash on Hand</span>
-        <span class="stat-value" id="cashOnHand">₹0.00</span>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>🏦 Lending Statistics</h2>
-      <div class="stat-row">
-        <span class="stat-label">Total Disbursed (Lent)</span>
-        <span class="stat-value" id="totalDisbursed">₹0.00</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Principal Recovered</span>
-        <span class="stat-value" id="recovered">₹0.00</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Outstanding Balance (To Collect)</span>
-        <span class="stat-value" style="color: #d00000;" id="outstanding">₹0.00</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Total Active Customers</span>
-        <span class="stat-value" id="custCount">0</span>
-      </div>
-    </div>
-
-    <div class="card" style="grid-column: 1 / -1;">
-      <h2>📋 Active & Closed Loans Details</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Customer</th>
-              <th>Initial Loan</th>
-              <th>Interest Rate</th>
-              <th>Balance Due</th>
-              <th>Method</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="loanTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="card" style="grid-column: 1 / -1;">
-      <h2>📜 Recent Transactions</h2>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Customer</th>
-              <th>Amount Paid</th>
-              <th>Interest Part</th>
-              <th>Principal Part</th>
-            </tr>
-          </thead>
-          <tbody id="txnTableBody"></tbody>
-        </table>
-      </div>
-    </div>
-
+<div id="mainContent" style="display: none;">
+  
+  <!-- KPI Cards -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="label">💰 Total Turnover</div><div class="value" id="turnoverKpi">₹0</div><div class="sub">Lent + Earned</div></div>
+    <div class="stat-card"><div class="label">📈 Net Profit</div><div class="value" id="profitKpi">₹0</div><div class="sub">Interest earned</div></div>
+    <div class="stat-card"><div class="label">🏦 Capital Employed</div><div class="value" id="capitalEmployed">₹0</div><div class="sub">Currently lent out</div></div>
+    <div class="stat-card"><div class="label">💤 Idle Cash</div><div class="value" id="idleCash">₹0</div><div class="sub">Available to lend</div></div>
   </div>
+
+  <!-- Monthly Revenue & Profit Chart -->
+  <div class="chart-container">
+    <div class="chart-title">📆 Monthly Revenue vs Profit</div>
+    <canvas id="monthlyChart" width="400" height="200"></canvas>
+  </div>
+
+  <!-- Monthly Turnover vs Disbursal Chart -->
+  <div class="chart-container">
+    <div class="chart-title">📊 Monthly Turnover & Disbursed</div>
+    <canvas id="turnoverChart" width="400" height="200"></canvas>
+  </div>
+
+  <!-- Idle Capital Trend (Cash on Hand over months) -->
+  <div class="chart-container">
+    <div class="chart-title">💧 Idle Capital Trend (Cash on Hand)</div>
+    <canvas id="idleTrendChart" width="400" height="200"></canvas>
+  </div>
+
+  <!-- Top Customers by Payment -->
+  <div class="compact-table">
+    <h3>🏆 Top Paying Customers (Lifetime)</h3>
+    <table id="topCustomersTable">
+      <thead><tr><th>Customer</th><th>Total Paid</th><th>Interest Paid</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- Loan Performance Summary -->
+  <div class="compact-table">
+    <h3>📋 Loan Performance Overview</h3>
+    <table id="loanSummaryTable">
+      <thead><tr><th>Customer</th><th>Principal</th><th>Recovered</th><th>Interest Earned</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="footer">Vsquar · Equal Partners · Cloud Powered</div>
 </div>
 
 <script>
-  // -------------------- FIREBASE CONFIG --------------------
+  // Firebase config (same as main app)
   const firebaseConfig = {
     apiKey: "AIzaSyCCjWVI1hB3sbu0JiA4viW1BK81xbMML-U",
     authDomain: "csl-calculations.firebaseapp.com",
     projectId: "csl-calculations",
     storageBucket: "csl-calculations.firebasestorage.app",
     messagingSenderId: "887219643486",
-    appId: "1:887219643486:web:???" // Update this with your actual App ID
+    appId: "1:887219643486:web:0cb001f2c72039a00240cf"
   };
-  
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
-  // -------------------- DATA LOADING --------------------
-  async function fetchDetails() {
+  let chartMonthly = null, chartTurnover = null, chartIdle = null;
+
+  async function loadData() {
     try {
       const doc = await db.collection("VSQURE").doc("appData").get();
-      if (doc.exists) {
-        const data = doc.data();
-        renderPage(data);
-      } else {
-        document.getElementById('syncStatus').innerText = "No data found in cloud.";
-      }
-    } catch (e) {
-      console.error(e);
-      document.getElementById('syncStatus').innerText = "Error loading data.";
+      if (!doc.exists) throw new Error("No data");
+      const data = doc.data();
+      renderAnalytics(data);
+      document.getElementById("syncStatus").innerHTML = "✅ Live Cloud Data";
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("mainContent").style.display = "block";
+    } catch (err) {
+      console.error(err);
+      document.getElementById("syncStatus").innerHTML = "⚠️ Error loading data. Check network.";
+      document.getElementById("loader").style.display = "none";
     }
   }
 
-  function renderPage(data) {
-    const { customers, loans, transactions, cashCapital } = data;
+  function renderAnalytics({ customers, loans, transactions, cashCapital }) {
+    // Helper: get customer name
+    const getCustName = (cid) => (customers.find(c => c.id === cid) || {}).name || "Unknown";
     
-    // Calculations
-    const totalProfit = transactions.reduce((s, t) => s + (t.interestPortion || 0), 0);
-    const totalDisbursed = loans.reduce((s, l) => s + (l.principalAmount || 0), 0);
-    const recovered = transactions.reduce((s, t) => s + (t.principalPortion || 0), 0);
-    const turnover = totalDisbursed + totalProfit;
-    
-    // Principal Outstanding Logic
-    let outstanding = 0;
-    loans.forEach(loan => {
-      if(loan.status === 'active') {
-        let loanTxns = transactions.filter(t => t.loanId === loan.id);
-        let loanRecovered = loanTxns.reduce((s, t) => s + (t.principalPortion || 0), 0);
-        outstanding += (loan.principalAmount - loanRecovered);
+    // ---- 1. Monthly aggregates (last 12 months) ----
+    const monthlyMap = new Map(); // key: "YYYY-MM"
+    const allDates = [];
+    transactions.forEach(t => {
+      if (!t.date) return;
+      const ym = t.date.slice(0, 7);
+      if (!monthlyMap.has(ym)) monthlyMap.set(ym, { revenue: 0, profit: 0, principalCollected: 0, disbursed: 0 });
+      const entry = monthlyMap.get(ym);
+      entry.revenue += t.amount;
+      entry.profit += (t.interestPortion || 0);
+      entry.principalCollected += (t.principalPortion || 0);
+    });
+    // Add disbursements (loan creation) to monthlyMap
+    loans.forEach(l => {
+      if (l.startDate) {
+        const ym = l.startDate.slice(0, 7);
+        if (!monthlyMap.has(ym)) monthlyMap.set(ym, { revenue: 0, profit: 0, principalCollected: 0, disbursed: 0 });
+        monthlyMap.get(ym).disbursed += l.principalAmount;
       }
     });
-
-    // Update UI Stats
-    document.getElementById('turnover').innerText = `₹${turnover.toLocaleString()}`;
-    document.getElementById('totalProfit').innerText = `₹${totalProfit.toLocaleString()}`;
-    document.getElementById('partnerShare').innerText = `₹${(totalProfit / 2).toLocaleString()}`;
-    document.getElementById('cashOnHand').innerText = `₹${cashCapital.toLocaleString()}`;
-    document.getElementById('totalDisbursed').innerText = `₹${totalDisbursed.toLocaleString()}`;
-    document.getElementById('recovered').innerText = `₹${recovered.toLocaleString()}`;
-    document.getElementById('outstanding').innerText = `₹${outstanding.toLocaleString()}`;
-    document.getElementById('custCount').innerText = customers.length;
-
-    // Render Loans Table
-    const loanBody = document.getElementById('loanTableBody');
-    loanBody.innerHTML = loans.map(l => {
-      const cust = customers.find(c => c.id === l.customerId);
-      const loanTxns = transactions.filter(t => t.loanId === l.id);
-      const paid = loanTxns.reduce((s, t) => s + (t.principalPortion || 0), 0);
-      const bal = l.status === 'closed' ? 0 : (l.principalAmount - paid);
-      
-      return `<tr>
-        <td><b>${cust ? cust.name : 'Unknown'}</b></td>
-        <td>₹${l.principalAmount}</td>
-        <td>${l.interestRate}%</td>
-        <td>₹${bal.toFixed(2)}</td>
-        <td>${l.method == 1 ? 'Int. Only' : l.method == 2 ? 'Flexi' : 'EMI'}</td>
-        <td><span class="badge ${l.status === 'closed' ? 'bg-closed' : 'bg-active'}">${l.status.toUpperCase()}</span></td>
-      </tr>`;
-    }).join('');
-
-    // Render Recent Transactions (Last 10)
-    const txnBody = document.getElementById('txnTableBody');
-    const recentTxns = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,10);
-    txnBody.innerHTML = recentTxns.map(t => {
+    // Also track cash on hand per month? We'll use transaction timestamps to infer idle capital? Simpler: use cashCapital as current, but for trend we can compute cumulative cash over time.
+    // For idle trend, we'll compute cash on hand after each transaction (running balance). But for chart simplicity, we'll compute month-end cash.
+    // Build time-ordered cash balance series.
+    const sortedTxns = [...transactions].sort((a,b) => new Date(a.date) - new Date(b.date));
+    let runningCash = 0; // initial capital not stored separately, but we can derive: current cash - total profit = initial capital? Actually cashCapital is current.
+    // We need historical cash. Since we don't have initial capital history, we'll simulate using total profit + recovered principal? Better: use cashCapital as of now and backtrack using transactions.
+    // Simplified: use month-end cash derived from cumulative inflows minus outflows (loans given). Outflows = loan disbursements.
+    const outflowMap = new Map(); // disbursements per month
+    loans.forEach(l => {
+      if (l.startDate) {
+        const ym = l.startDate.slice(0,7);
+        outflowMap.set(ym, (outflowMap.get(ym) || 0) + l.principalAmount);
+      }
+    });
+    // Build month list (last 12 months)
+    const today = new Date();
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      months.push(ym);
+    }
+    const revenueData = [], profitData = [], disbursedData = [], turnoverData = [];
+    let cumulativeCash = cashCapital; // current cash, we'll back-calculate for past months by reversing net flow
+    // To get month-end cash historically, we need to sum net flows (inflows - outflows) from that month until now.
+    // Simpler: compute month-end cash by starting from zero and applying all transactions up to that month.
+    // We'll compute cumulative net flow up to each month end.
+    const monthEndBalance = [];
+    // get all unique months with any activity
+    const allMonthsSet = new Set();
+    monthlyMap.forEach((_, ym) => allMonthsSet.add(ym));
+    months.forEach(m => allMonthsSet.add(m));
+    const sortedMonths = Array.from(allMonthsSet).sort();
+    let balance = 0;
+    const balanceByMonth = new Map();
+    // We need initial capital unknown. Use cashCapital as final balance and work backwards? Not accurate.
+    // So we'll use balance starting from 0 and just show relative trend (but user will see cash on hand at end). We'll instead compute monthly net cash flow and then cumulative.
+    // Let's compute net cash flow per month (inflow = collected amount, outflow = disbursed)
+    const netFlowPerMonth = new Map();
+    sortedMonths.forEach(ym => {
+      let inflow = monthlyMap.get(ym)?.revenue || 0;
+      let outflow = outflowMap.get(ym) || 0;
+      netFlowPerMonth.set(ym, inflow - outflow);
+    });
+    // cumulative from first month to current: final = cashCapital. So we can offset.
+    let cumulative = 0;
+    const cumulativeArr = [];
+    for (let i = 0; i < sortedMonths.length; i++) {
+      const ym = sortedMonths[i];
+      cumulative += netFlowPerMonth.get(ym) || 0;
+      cumulativeArr.push({ ym, cumulative });
+    }
+    const finalCumulative = cumulativeArr.length ? cumulativeArr[cumulativeArr.length-1].cumulative : 0;
+    const offset = cashCapital - finalCumulative; // adjust to match current cash
+    const cashHistory = cumulativeArr.map(item => ({ ym: item.ym, cash: item.cumulative + offset }));
+    // Now extract last 12 months for idle trend
+    const idleTrendLabels = [];
+    const idleTrendValues = [];
+    months.forEach(ym => {
+      idleTrendLabels.push(ym.slice(5));
+      const found = cashHistory.find(c => c.ym === ym);
+      idleTrendValues.push(found ? found.cash : 0);
+    });
+    
+    // Prepare monthly chart labels (last 12 month names)
+    const monthLabels = months.map(m => m.slice(5));
+    months.forEach(ym => {
+      const stats = monthlyMap.get(ym) || { revenue: 0, profit: 0, disbursed: 0 };
+      revenueData.push(stats.revenue);
+      profitData.push(stats.profit);
+      disbursedData.push(stats.disbursed);
+      turnoverData.push(stats.revenue + stats.disbursed);
+    });
+    
+    // Update KPI cards
+    const totalTurnover = turnoverData.reduce((a,b)=>a+b,0);
+    const totalProfit = profitData.reduce((a,b)=>a+b,0);
+    const totalDisbursed = loans.reduce((sum,l)=>sum+l.principalAmount,0);
+    const capitalEmployed = loans.reduce((sum, l) => {
+      if (l.status === 'closed') return sum;
+      const paidPrincipal = transactions.filter(t=>t.loanId===l.id).reduce((s,t)=>s+(t.principalPortion||0),0);
+      return sum + (l.principalAmount - paidPrincipal);
+    }, 0);
+    const idleCash = cashCapital;
+    document.getElementById('turnoverKpi').innerHTML = `₹${totalTurnover.toLocaleString()}`;
+    document.getElementById('profitKpi').innerHTML = `₹${totalProfit.toLocaleString()}`;
+    document.getElementById('capitalEmployed').innerHTML = `₹${capitalEmployed.toLocaleString()}`;
+    document.getElementById('idleCash').innerHTML = `₹${idleCash.toLocaleString()}`;
+    
+    // Charts
+    if (chartMonthly) chartMonthly.destroy();
+    const ctx1 = document.getElementById('monthlyChart').getContext('2d');
+    chartMonthly = new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          { label: 'Revenue (₹)', data: revenueData, backgroundColor: '#00b4d8', borderRadius: 8 },
+          { label: 'Profit (₹)', data: profitData, backgroundColor: '#2e7d32', borderRadius: 8 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+    });
+    
+    if (chartTurnover) chartTurnover.destroy();
+    const ctx2 = document.getElementById('turnoverChart').getContext('2d');
+    chartTurnover = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: monthLabels,
+        datasets: [
+          { label: 'Monthly Turnover (₹)', data: turnoverData, borderColor: '#0077b6', tension: 0.3, fill: false, pointBackgroundColor: '#0077b6' },
+          { label: 'Disbursed (₹)', data: disbursedData, borderColor: '#f4a261', tension: 0.3, fill: false, pointBackgroundColor: '#f4a261' }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: true }
+    });
+    
+    if (chartIdle) chartIdle.destroy();
+    const ctx3 = document.getElementById('idleTrendChart').getContext('2d');
+    chartIdle = new Chart(ctx3, {
+      type: 'line',
+      data: {
+        labels: idleTrendLabels,
+        datasets: [{ label: 'Idle Capital (Cash on Hand)', data: idleTrendValues, borderColor: '#2a9d8f', backgroundColor: 'rgba(42,157,143,0.1)', fill: true, tension: 0.2 }]
+      },
+      options: { responsive: true, maintainAspectRatio: true }
+    });
+    
+    // Top customers table
+    const customerPayment = new Map();
+    transactions.forEach(t => {
       const loan = loans.find(l => l.id === t.loanId);
-      const cust = loan ? customers.find(c => c.id === loan.customerId) : null;
+      if (loan) {
+        const custId = loan.customerId;
+        const cname = getCustName(custId);
+        if (!customerPayment.has(custId)) customerPayment.set(custId, { name: cname, totalPaid: 0, interestPaid: 0 });
+        const rec = customerPayment.get(custId);
+        rec.totalPaid += t.amount;
+        rec.interestPaid += (t.interestPortion || 0);
+      }
+    });
+    const topCustomers = Array.from(customerPayment.values()).sort((a,b) => b.totalPaid - a.totalPaid).slice(0,5);
+    const topTableBody = document.querySelector('#topCustomersTable tbody');
+    topTableBody.innerHTML = topCustomers.map(c => `<tr><td>${c.name}</td><td>₹${c.totalPaid.toLocaleString()}</td><td>₹${c.interestPaid.toLocaleString()}</td></tr>`).join('');
+    if (topCustomers.length === 0) topTableBody.innerHTML = '<tr><td colspan="3">No transactions yet</td></tr>';
+    
+    // Loan summary table
+    const loanSummaryBody = document.querySelector('#loanSummaryTable tbody');
+    loanSummaryBody.innerHTML = loans.map(loan => {
+      const custName = getCustName(loan.customerId);
+      const paidPrincipal = transactions.filter(t => t.loanId === loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
+      const interestEarned = transactions.filter(t => t.loanId === loan.id).reduce((s,t) => s + (t.interestPortion || 0), 0);
+      const recovered = paidPrincipal;
+      const statusClass = loan.status === 'closed' ? 'badge-closed' : 'badge-active';
+      const statusText = loan.status === 'closed' ? 'Closed' : 'Active';
       return `<tr>
-        <td>${t.date}</td>
-        <td>${cust ? cust.name : 'N/A'}</td>
-        <td>₹${t.amount}</td>
-        <td>₹${t.interestPortion}</td>
-        <td>₹${t.principalPortion}</td>
+        <td>${custName}</td>
+        <td>₹${loan.principalAmount}</td>
+        <td>₹${recovered.toLocaleString()}</td>
+        <td>₹${interestEarned.toLocaleString()}</td>
+        <td><span class="badge ${statusClass}">${statusText}</span></td>
       </tr>`;
     }).join('');
-
-    // Switch Views
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('content').style.display = 'block';
-    document.getElementById('syncStatus').innerText = "Live Cloud Data (Viewer)";
+    if (loans.length === 0) loanSummaryBody.innerHTML = '<tr><td colspan="5">No loans found</td></tr>';
   }
-
-  // Initial Fetch
-  fetchDetails();
+  
+  loadData();
 </script>
 
 </body>
