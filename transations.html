@@ -94,6 +94,13 @@
     return params.get('role') === 'admin' ? 'admin' : 'viewer';
   }
 
+  function formatDateDMY(dateStr) {
+    if (!dateStr) return '';
+    let parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    return dateStr;
+  }
+
   async function loadData() {
     try {
       const doc = await db.collection(COLLECTION).doc(DOC_ID).get();
@@ -168,7 +175,7 @@
     const totalExpected = getTotalExpectedForLoan(loan);
     const remainingTotal = recomputeRemaining(loan);
     document.getElementById('loanSummary').innerHTML = `
-      <strong>${cust ? cust.name : 'Unknown'}</strong> | Total Amount: ₹${totalExpected} | Remaining: ₹${remainingTotal.toFixed(2)} | Status: ${loan.status.toUpperCase()}
+      <strong>Loan #${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}</strong> | Total Amount: ₹${totalExpected} | Remaining: ₹${remainingTotal.toFixed(2)} | Status: ${loan.status.toUpperCase()}
     `;
 
     const schedule = generateSchedule(loan);
@@ -259,7 +266,7 @@
       const c = getCustomer(l.customerId);
       const totalExpected = getTotalExpectedForLoan(l);
       const remaining = recomputeRemaining(l);
-      const optionText = `${c ? c.name : 'N/A'} | Total: ₹${totalExpected} | Balance: ₹${remaining.toFixed(2)}`;
+      const optionText = `#${l.loanNumber} - ${c ? c.name : 'N/A'} | Total: ₹${totalExpected} | Balance: ₹${remaining.toFixed(2)}`;
       const opt = document.createElement('option');
       opt.value = l.id;
       opt.textContent = optionText;
@@ -491,7 +498,7 @@
     }
   };
 
-  // PDF Export – with "Total Amount" label and closed message
+  // PDF Export with loan number
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -504,19 +511,21 @@
     const customerName = cust ? cust.name : "Vsquar";
     const today = new Date();
     const dateStr = today.toISOString().slice(0,10);
-    const fileName = `${customerName}_${dateStr}.pdf`;
+    const fileName = `Loan_${loan.loanNumber}_${customerName}_${dateStr}.pdf`;
     const totalExpected = getTotalExpectedForLoan(loan);
     const remaining = recomputeRemaining(loan);
     
     doc.setFontSize(18);
-    doc.text(`Payment Receipt - ${customerName}`, 14, 20);
+    doc.text(`Payment Receipt - Loan #${loan.loanNumber}`, 14, 20);
+    doc.setFontSize(12);
+    doc.text(`Customer: ${customerName}`, 14, 30);
     doc.setFontSize(10);
-    doc.text(`Total Amount: ₹${totalExpected}`, 14, 30);
+    doc.text(`Total Amount: ₹${totalExpected}`, 14, 38);
     if (remaining <= 0.01) {
-      doc.text("✅ Loan Closed", 14, 37);
-      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 44);
+      doc.text("✅ Loan Closed", 14, 45);
+      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 52);
     } else {
-      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 37);
+      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 45);
     }
     
     const rows = [];
@@ -531,7 +540,7 @@
       rows.push(rowData);
     });
     
-    let startY = remaining <= 0.01 ? 50 : 43;
+    let startY = remaining <= 0.01 ? 58 : 51;
     doc.autoTable({
       startY: startY,
       head: [['#', 'Planned', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Remaining', 'Remark']],
