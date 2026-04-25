@@ -1,5 +1,5 @@
 // sw.js - Vsquar PWA
-const CACHE_NAME = 'vsquar-v5'; // Increment version on each update
+const CACHE_NAME = 'vsquar-v6'; // Increment version on each update
 const urlsToCache = [
   './',
   './index.html',   // or the name of your main HTML file
