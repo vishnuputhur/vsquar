@@ -97,7 +97,7 @@
     <input type="password" id="passwordInput" placeholder="Password">
     <button id="unlockBtn">Unlock</button>
     <div id="pwdError" class="error-msg"></div>
-    <div class="password-hint">🔑 Demo password: 0000</div>
+    <div class="password-hint">🔑 Admin: 9 | Viewer: 4250 | Demo: 0000</div>
   </div>
 </div>
 <div id="fakeTimeDisplay" style="display:none; text-align:center; margin-top:50px; font-size:2em;"></div>
@@ -228,7 +228,6 @@
     return dateStr;
   }
 
-  // Generate next loan number (e.g., 001, 002, ...)
   function getNextLoanNumber() {
     let maxNum = 0;
     loans.forEach(loan => {
@@ -241,12 +240,10 @@
     return next.toString().padStart(3, '0');
   }
 
-  // Assign missing loan numbers to existing loans (based on creation order or id)
   async function assignMissingLoanNumbers() {
     let changed = false;
     const loansWithoutNumber = loans.filter(l => !l.loanNumber);
     if (loansWithoutNumber.length === 0) return;
-    // Sort by id (oldest first) to assign sequentially
     loansWithoutNumber.sort((a,b) => a.id - b.id);
     let currentNumber = 1;
     for (let loan of loansWithoutNumber) {
@@ -344,12 +341,41 @@
   function getLoan(id) { return loans.find(l=>l.id==id); }
   function getCustomer(id) { return customers.find(c=>c.id==id); }
 
+  // ----- NEW: Exact principal remaining (only principal lent - recovered principal) -----
+  function getPrincipalRemaining(loan) {
+    const totalPrincipalRecovered = transactions
+      .filter(t => t.loanId === loan.id)
+      .reduce((sum, t) => sum + (t.principalPortion || 0), 0);
+    return Math.max(0, loan.principalAmount - totalPrincipalRecovered);
+  }
+
+  // ----- NEW: Accrued interest up to a specific date based on outstanding principal and daily rate -----
+  function getAccruedInterestUpToDate(loan, asOfDate, principalBalance) {
+    if (loan.method === 4) return 0;  // weekly EMI has no interest
+    if (!loan.interestRate || loan.interestRate === 0) return 0;
+    if (principalBalance <= 0) return 0;
+    
+    const dailyRate = (loan.interestRate / 100) / 30; // same as flexible method (30 days month)
+    // Find last transaction date (any transaction) or start date
+    let lastEventDate = loan.startDate ? new Date(loan.startDate) : new Date();
+    const loanTransactions = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+    if (loanTransactions.length > 0) {
+      lastEventDate = new Date(loanTransactions[0].date);
+    }
+    const closeDate = new Date(asOfDate);
+    if (closeDate <= lastEventDate) return 0;
+    const diffDays = Math.floor((closeDate - lastEventDate) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return 0;
+    let interest = principalBalance * dailyRate * diffDays;
+    return parseFloat(interest.toFixed(2));
+  }
+
+  // Legacy recompute (total expected remaining, used for EMI total display)
   function getTotalExpectedForLoan(loan) {
     if(loan.method == 4) return (loan.weeklyAmount || 250) * (loan.tenure || 44);
     else if(loan.method == 3) return (loan.emiAmount || 0) * (loan.tenure || 1);
     else return loan.principalAmount;
   }
-
   function recomputePrincipal(loan) {
     const totalExpected = getTotalExpectedForLoan(loan);
     const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
@@ -359,7 +385,7 @@
   function totalInterest() { return transactions.reduce((s,t)=>s+(t.interestPortion||0),0); }
   function totalPrincipalRecovered() { return transactions.reduce((s,t)=>s+(t.principalPortion||0),0); }
   function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
-  function totalOutstanding() { let out=0; loans.forEach(l=>out+=recomputePrincipal(l)); return out; }
+  function totalOutstanding() { let out=0; loans.forEach(l=>{ if(l.status !== 'closed') out += getPrincipalRemaining(l); }); return out; }
   function totalInvested() {
     return capitalHistory.filter(h => h.type === 'add').reduce((sum, h) => sum + h.amount, 0);
   }
@@ -370,21 +396,20 @@
     today.setHours(0,0,0,0);
     loans.forEach(loan => {
       if(loan.status === 'closed') return;
-      let remainingPrincipal = loan.principalAmount;
-      transactions.filter(t=>t.loanId===loan.id).forEach(t=>{ remainingPrincipal -= (t.principalPortion||0); });
-      remainingPrincipal = Math.max(0, remainingPrincipal);
-      if(remainingPrincipal <= 0) return;
+      let principalBal = getPrincipalRemaining(loan);
+      if(principalBal <= 0) return;
       const startDate = loan.startDate ? new Date(loan.startDate) : new Date();
       if(isNaN(startDate)) return;
       const daysDiff = Math.max(0, Math.floor((today - startDate) / (1000*60*60*24)));
       if(daysDiff <= 0) return;
-      const interest = remainingPrincipal * (0.20 / 365) * daysDiff;
+      const dailyRate = (loan.interestRate / 100) / 30;
+      const interest = principalBal * dailyRate * daysDiff;
       total += interest;
     });
     return total;
   }
 
-  function generateSchedule(loan) {
+  function generateSchedule(loan) { /* unchanged, for alerts */ 
     if (!loan) return [];
     const startDate = new Date(loan.startDate);
     let schedule = [];
@@ -403,7 +428,6 @@
     }
     return schedule;
   }
-
   function isInstallmentPaid(loan, plannedDate, index) {
     const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
     if (index <= loanTxns.length) {
@@ -413,7 +437,6 @@
     }
     return false;
   }
-
   function getNextDueAlert(loan) {
     if (loan.method !== 3 && loan.method !== 4) return null;
     if (loan.status === 'closed') return null;
@@ -449,13 +472,8 @@
     if(amount <= 0) return { success: false, msg: "Amount must be positive" };
     
     let interestPortion = 0, principalPortion = 0;
+    let outstandingPrincipal = getPrincipalRemaining(loan);
     
-    let outstandingPrincipal = loan.principalAmount;
-    transactions.filter(t => t.loanId == loan.id).forEach(t => { 
-      outstandingPrincipal -= (t.principalPortion || 0); 
-    });
-    outstandingPrincipal = Math.max(0, outstandingPrincipal);
-
     if (loan.method === 2) {
       const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(b.date) - new Date(a.date));
       let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
@@ -518,6 +536,29 @@
     
     saveAll();
     return { success: true, msg: "Payment added successfully!", txn: newTxn };
+  }
+
+  // NEW: Close loan with exact principal + accrued interest
+  function closeLoanWithAccrued(loanId, closeDate, totalDue, principalPortionVal, interestPortionVal) {
+    if(currentRole !== "admin") return false;
+    const loan = getLoan(loanId);
+    if(!loan || loan.status === 'closed') return false;
+    if(totalDue <= 0) return false;
+    const newTxn = {
+      id: Date.now() + Math.random(),
+      loanId: loan.id,
+      date: closeDate,
+      amount: totalDue,
+      interestPortion: interestPortionVal,
+      principalPortion: principalPortionVal,
+      remark: "Loan closure (full settlement)",
+      timestamp: new Date().toISOString()
+    };
+    transactions.push(newTxn);
+    cashCapital += totalDue;
+    loan.status = 'closed';
+    saveAll();
+    return true;
   }
 
   function createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmount) {
@@ -610,14 +651,49 @@
     saveAll(); return true;
   }
   
-  function closeLoanWithAmount(loanId, closeAmount, closeDate) {
+  function showCloseLoanModal(loanId) {
     const loan = getLoan(loanId);
-    if(!loan) return false;
-    const remaining = recomputePrincipal(loan);
-    if(Math.abs(closeAmount - remaining) > 0.01) return false;
-    const res = addTransaction(loanId, closeDate, closeAmount, "Loan closure payment");
-    if(res.success) { loan.status = 'closed'; saveAll(); return true; }
-    return false;
+    if(!loan) return;
+    const principalRemaining = getPrincipalRemaining(loan);
+    if(principalRemaining <= 0.01) { loan.status = 'closed'; saveAll(); renderAll(); alert("Loan already fully closed (principal zero)."); return; }
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modal';
+    const todayStr = new Date().toISOString().slice(0,10);
+    modalDiv.innerHTML = `<div class="modal-content"><h3>Close Loan #${loan.loanNumber}</h3>
+      <p><strong>📌 Outstanding Principal:</strong> ₹${principalRemaining.toFixed(2)}</p>
+      <p><strong>📅 Select Closing Date:</strong></p>
+      <input type="date" id="closeDateModal" value="${todayStr}">
+      <div id="accruedPreview"></div>
+      <div class="flex-btns"><button id="closeConfirmBtn">Confirm & Close</button><button id="closeCancelBtn">Cancel</button></div>
+    </div>`;
+    document.body.appendChild(modalDiv);
+    const dateInput = modalDiv.querySelector('#closeDateModal');
+    const previewDiv = modalDiv.querySelector('#accruedPreview');
+    
+    function updatePreview() {
+      const closeDate = dateInput.value;
+      if(!closeDate) return;
+      const interestAccrued = getAccruedInterestUpToDate(loan, closeDate, principalRemaining);
+      const totalDue = principalRemaining + interestAccrued;
+      previewDiv.innerHTML = `<p><strong>📈 Accrued Interest (till ${closeDate}):</strong> ₹${interestAccrued.toFixed(2)}</p>
+      <p><strong>💰 TOTAL TO CLOSE:</strong> ₹${totalDue.toFixed(2)}</p>`;
+    }
+    dateInput.addEventListener('change', updatePreview);
+    updatePreview();
+    
+    modalDiv.querySelector('#closeConfirmBtn').onclick = ()=>{
+      const closeDate = dateInput.value;
+      if(!closeDate) return alert("Select date");
+      const interestAccrued = getAccruedInterestUpToDate(loan, closeDate, principalRemaining);
+      const totalDue = principalRemaining + interestAccrued;
+      if(totalDue <= 0) { alert("Nothing to close"); modalDiv.remove(); return; }
+      if(closeLoanWithAccrued(loanId, closeDate, totalDue, principalRemaining, interestAccrued)) {
+        renderAll();
+        alert(`Loan #${loan.loanNumber} closed with ₹${totalDue.toFixed(2)} (Principal ₹${principalRemaining.toFixed(2)} + Interest ₹${interestAccrued.toFixed(2)})`);
+        modalDiv.remove();
+      } else alert("Closing failed");
+    };
+    modalDiv.querySelector('#closeCancelBtn').onclick = ()=> modalDiv.remove();
   }
 
   function renderCustomers() {
@@ -639,7 +715,8 @@
     });
     container.innerHTML = sortedLoans.map(loan => {
       const cust = getCustomer(loan.customerId);
-      const out = recomputePrincipal(loan);
+      const principalBal = getPrincipalRemaining(loan);
+      const totalExpectedRemaining = recomputePrincipal(loan);
       let methodDesc = '';
       if(loan.method===1) methodDesc='Interest only';
       else if(loan.method===2) methodDesc='Flexible';
@@ -649,8 +726,9 @@
       return `<div class="list-item" data-loan-id="${loan.id}">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'} (Loan #${loan.loanNumber})</strong><span class="badge">Amount: ₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${formatDateDMY(loan.startDate)} | ${methodDesc}</div>
-        <div>Remaining: ₹${out.toFixed(2)} | Status: ${loan.status==='closed'?'Closed':'Active'}${closedBadge}</div>
-        <div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button></div>
+        <div><span style="background:#e2e8f0; padding:2px 6px; border-radius:12px;">📌 Principal Balance: ₹${principalBal.toFixed(2)}</span> ${ (loan.method===3||loan.method===4) ? `<span class="text-muted"> | Total Expected Remaining: ₹${totalExpectedRemaining.toFixed(2)}</span>` : '' }</div>
+        <div>Status: ${loan.status==='closed'?'Closed':'Active'}${closedBadge}</div>
+        ${loan.status !== 'closed' ? `<div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan (Full Settlement)</button></div>` : ''}
       </div>`;
     }).join('');
     document.querySelectorAll('.close-loan').forEach(btn=>{ btn.addEventListener('click', (e)=>{ const id = parseInt(btn.getAttribute('data-id')); showCloseLoanModal(id); }); });
@@ -661,25 +739,6 @@
         return `<option value="${l.id}">#${l.loanNumber} - ${cust?cust.name:'N/A'} (₹${l.principalAmount})</option>`;
       }).join('');
     }
-  }
-  
-  function showCloseLoanModal(loanId) {
-    const loan = getLoan(loanId);
-    if(!loan) return;
-    const remaining = recomputePrincipal(loan);
-    if(remaining <= 0.01) { loan.status = 'closed'; saveAll(); renderAll(); alert("Loan already closed"); return; }
-    const modalDiv = document.createElement('div');
-    modalDiv.className = 'modal';
-    modalDiv.innerHTML = `<div class="modal-content"><h3>Close Loan #${loan.loanNumber}</h3><p>Remaining: ₹${remaining.toFixed(2)}</p><label>Closing Amount (₹)</label><input type="number" id="closeAmount"><label>Date</label><input type="date" id="closeDate" value="${new Date().toISOString().slice(0,10)}"><div class="flex-btns"><button id="closeConfirmBtn">Confirm</button><button id="closeCancelBtn">Cancel</button></div></div>`;
-    document.body.appendChild(modalDiv);
-    modalDiv.querySelector('#closeConfirmBtn').onclick = ()=>{
-      const closeAmount = parseFloat(modalDiv.querySelector('#closeAmount').value);
-      const closeDate = modalDiv.querySelector('#closeDate').value;
-      if(isNaN(closeAmount) || Math.abs(closeAmount-remaining)>0.01) alert(`Amount must equal ₹${remaining.toFixed(2)}`);
-      else if(closeLoanWithAmount(loanId, closeAmount, closeDate)) { renderAll(); alert("Loan closed"); modalDiv.remove(); }
-      else alert("Failed");
-    };
-    modalDiv.querySelector('#closeCancelBtn').onclick = ()=> modalDiv.remove();
   }
   
   function renderTransactions() {
@@ -702,7 +761,7 @@
   function renderDashboard() {
     document.getElementById('dashCustomers').innerText = customers.length;
     document.getElementById('dashActiveLoans').innerText = loans.filter(l=>l.status!=='closed').length;
-    const outstanding = totalOutstanding();
+    const outstandingPrincipal = totalOutstanding();
     const invested = totalDisbursed();
     const approxProfit = computeApproxProfit();
     const profitEarned = totalInterest();
@@ -710,9 +769,9 @@
     const approxPercent = invested > 0 ? (approxProfit / invested * 100).toFixed(2) : '0.00';
     const dashboardHtml = `
       <p><strong>💰 Cash on Hand:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
-      <p><strong>📊 Total Outstanding:</strong> <span>₹${outstanding.toFixed(2)}</span></p>
+      <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${outstandingPrincipal.toFixed(2)}</span></p>
       <p><strong>🏦 Total Invested (Disbursed):</strong> <span>₹${invested.toFixed(2)}</span></p>
-      <p><strong>📈 Approx Profit:</strong> <span class="profit-green">₹${approxProfit.toFixed(2)} <span style="font-size:0.75rem;">(+${approxPercent}%)</span></span></p>
+      <p><strong>📈 Approx Profit (ongoing):</strong> <span class="profit-green">₹${approxProfit.toFixed(2)} <span style="font-size:0.75rem;">(+${approxPercent}%)</span></span></p>
       <p><strong>✅ Total Profit Earned:</strong> <span class="profit-green">₹${profitEarned.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercent}%)</span></span></p>
       <p><strong>👥 Partner's Share (50%):</strong> <span>₹${(profitEarned/2).toFixed(2)}</span></p>
     `;
@@ -742,7 +801,7 @@
       <p><strong>📈 Total Interest Earned:</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
       <p><strong>🏦 Initial Capital (Estimate):</strong> <span>₹${initCap>=0?initCap.toFixed(2):"0.00"}</span></p>
       <p><strong>📦 Total Disbursed (Principal):</strong> <span>₹${totalDisbursed().toFixed(2)}</span></p>
-      <p><strong>📊 Total Outstanding:</strong> <span>₹${totalOutstanding().toFixed(2)}</span></p>
+      <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${totalOutstanding().toFixed(2)}</span></p>
       <p><strong>✅ Principal Recovered:</strong> <span>₹${totalPrincipalRecovered().toFixed(2)}</span></p>
     `;
     document.getElementById('capitalOutput').innerHTML = capitalHtml;
@@ -777,9 +836,9 @@
 
   async function unlockApp() {
     const pwd = document.getElementById('passwordInput').value;
-    if(pwd==='9947') { currentRole="admin"; await proceed(); }
-    else if(pwd==='4250') { currentRole="viewer"; await proceed(); }
-    else if(pwd==='0000') {
+    if(pwd === '9') { currentRole="admin"; await proceed(); }
+    else if(pwd === '4250') { currentRole="viewer"; await proceed(); }
+    else if(pwd === '0000') {
       document.getElementById('passwordModal').style.display='none';
       const fakeDiv = document.getElementById('fakeTimeDisplay');
       fakeDiv.style.display='block';
