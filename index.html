@@ -97,7 +97,7 @@
     <input type="password" id="passwordInput" placeholder="Password">
     <button id="unlockBtn">Unlock</button>
     <div id="pwdError" class="error-msg"></div>
-    <div class="password-hint">🔑 Admin: 9 | Viewer: 4250 | Demo: 0000</div>
+    <div class="password-hint">Demo: 0000</div>
   </div>
 </div>
 <div id="fakeTimeDisplay" style="display:none; text-align:center; margin-top:50px; font-size:2em;"></div>
@@ -341,7 +341,6 @@
   function getLoan(id) { return loans.find(l=>l.id==id); }
   function getCustomer(id) { return customers.find(c=>c.id==id); }
 
-  // ----- NEW: Exact principal remaining (only principal lent - recovered principal) -----
   function getPrincipalRemaining(loan) {
     const totalPrincipalRecovered = transactions
       .filter(t => t.loanId === loan.id)
@@ -349,28 +348,50 @@
     return Math.max(0, loan.principalAmount - totalPrincipalRecovered);
   }
 
-  // ----- NEW: Accrued interest up to a specific date based on outstanding principal and daily rate -----
-  function getAccruedInterestUpToDate(loan, asOfDate, principalBalance) {
-    if (loan.method === 4) return 0;  // weekly EMI has no interest
+  // Accurate accrued interest from last event (start or last payment) up to given date
+  function getAccruedInterestUpToDate(loan, asOfDate, principalBalance = null) {
+    if (loan.method === 4) return 0;
     if (!loan.interestRate || loan.interestRate === 0) return 0;
-    if (principalBalance <= 0) return 0;
+    const pBal = (principalBalance !== null) ? principalBalance : getPrincipalRemaining(loan);
+    if (pBal <= 0) return 0;
     
-    const dailyRate = (loan.interestRate / 100) / 30; // same as flexible method (30 days month)
-    // Find last transaction date (any transaction) or start date
+    const dailyRate = (loan.interestRate / 100) / 30;
     let lastEventDate = loan.startDate ? new Date(loan.startDate) : new Date();
     const loanTransactions = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(b.date) - new Date(a.date));
     if (loanTransactions.length > 0) {
       lastEventDate = new Date(loanTransactions[0].date);
     }
-    const closeDate = new Date(asOfDate);
-    if (closeDate <= lastEventDate) return 0;
-    const diffDays = Math.floor((closeDate - lastEventDate) / (1000 * 60 * 60 * 24));
+    const targetDate = new Date(asOfDate);
+    if (targetDate <= lastEventDate) return 0;
+    const diffDays = Math.floor((targetDate - lastEventDate) / (1000 * 60 * 60 * 24));
     if (diffDays <= 0) return 0;
-    let interest = principalBalance * dailyRate * diffDays;
+    let interest = pBal * dailyRate * diffDays;
     return parseFloat(interest.toFixed(2));
   }
 
-  // Legacy recompute (total expected remaining, used for EMI total display)
+  // Total profit (realised + accrued) = interest collected so far + accrued interest on outstanding principal
+  function computeTotalProfitAccurate() {
+    let collectedInterest = transactions.reduce((sum, t) => sum + (t.interestPortion || 0), 0);
+    let accruedNow = 0;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    for (let loan of loans) {
+      if (loan.status === 'closed') continue;
+      const principalBal = getPrincipalRemaining(loan);
+      if (principalBal <= 0) continue;
+      const accrued = getAccruedInterestUpToDate(loan, today.toISOString().slice(0,10), principalBal);
+      accruedNow += accrued;
+    }
+    return collectedInterest + accruedNow;
+  }
+
+  // For dashboard approximate profit percentage relative to disbursed
+  function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
+  function totalInterest() { return transactions.reduce((s,t)=>s+(t.interestPortion||0),0); }
+  function totalPrincipalRecovered() { return transactions.reduce((s,t)=>s+(t.principalPortion||0),0); }
+  function totalOutstandingPrincipal() { let out=0; loans.forEach(l=>{ if(l.status !== 'closed') out += getPrincipalRemaining(l); }); return out; }
+  function totalInvested() { return capitalHistory.filter(h => h.type === 'add').reduce((sum, h) => sum + h.amount, 0); }
+
   function getTotalExpectedForLoan(loan) {
     if(loan.method == 4) return (loan.weeklyAmount || 250) * (loan.tenure || 44);
     else if(loan.method == 3) return (loan.emiAmount || 0) * (loan.tenure || 1);
@@ -382,34 +403,7 @@
     return Math.max(0, totalExpected - totalPaid);
   }
 
-  function totalInterest() { return transactions.reduce((s,t)=>s+(t.interestPortion||0),0); }
-  function totalPrincipalRecovered() { return transactions.reduce((s,t)=>s+(t.principalPortion||0),0); }
-  function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
-  function totalOutstanding() { let out=0; loans.forEach(l=>{ if(l.status !== 'closed') out += getPrincipalRemaining(l); }); return out; }
-  function totalInvested() {
-    return capitalHistory.filter(h => h.type === 'add').reduce((sum, h) => sum + h.amount, 0);
-  }
-
-  function computeApproxProfit() {
-    let total = 0;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    loans.forEach(loan => {
-      if(loan.status === 'closed') return;
-      let principalBal = getPrincipalRemaining(loan);
-      if(principalBal <= 0) return;
-      const startDate = loan.startDate ? new Date(loan.startDate) : new Date();
-      if(isNaN(startDate)) return;
-      const daysDiff = Math.max(0, Math.floor((today - startDate) / (1000*60*60*24)));
-      if(daysDiff <= 0) return;
-      const dailyRate = (loan.interestRate / 100) / 30;
-      const interest = principalBal * dailyRate * daysDiff;
-      total += interest;
-    });
-    return total;
-  }
-
-  function generateSchedule(loan) { /* unchanged, for alerts */ 
+  function generateSchedule(loan) {
     if (!loan) return [];
     const startDate = new Date(loan.startDate);
     let schedule = [];
@@ -538,7 +532,6 @@
     return { success: true, msg: "Payment added successfully!", txn: newTxn };
   }
 
-  // NEW: Close loan with exact principal + accrued interest
   function closeLoanWithAccrued(loanId, closeDate, totalDue, principalPortionVal, interestPortionVal) {
     if(currentRole !== "admin") return false;
     const loan = getLoan(loanId);
@@ -723,10 +716,16 @@
       else if(loan.method===3) methodDesc=`Monthly EMI ₹${loan.emiAmount}`;
       else methodDesc=`Weekly EMI ₹${loan.weeklyAmount} × ${loan.tenure} weeks`;
       const closedBadge = loan.status === 'closed' ? ' | ✅ CLOSED' : '';
+      // Separate lines: principal balance then expected remaining (if applicable)
+      let expectedLine = '';
+      if (loan.method === 3 || loan.method === 4) {
+        expectedLine = `<div>📊 Expected Remaining: ₹${totalExpectedRemaining.toFixed(2)}</div>`;
+      }
       return `<div class="list-item" data-loan-id="${loan.id}">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'} (Loan #${loan.loanNumber})</strong><span class="badge">Amount: ₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${formatDateDMY(loan.startDate)} | ${methodDesc}</div>
-        <div><span style="background:#e2e8f0; padding:2px 6px; border-radius:12px;">📌 Principal Balance: ₹${principalBal.toFixed(2)}</span> ${ (loan.method===3||loan.method===4) ? `<span class="text-muted"> | Total Expected Remaining: ₹${totalExpectedRemaining.toFixed(2)}</span>` : '' }</div>
+        <div>📌 Principal Balance: ₹${principalBal.toFixed(2)}</div>
+        ${expectedLine}
         <div>Status: ${loan.status==='closed'?'Closed':'Active'}${closedBadge}</div>
         ${loan.status !== 'closed' ? `<div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan (Full Settlement)</button></div>` : ''}
       </div>`;
@@ -761,19 +760,19 @@
   function renderDashboard() {
     document.getElementById('dashCustomers').innerText = customers.length;
     document.getElementById('dashActiveLoans').innerText = loans.filter(l=>l.status!=='closed').length;
-    const outstandingPrincipal = totalOutstanding();
+    const outstandingPrincipal = totalOutstandingPrincipal();
     const invested = totalDisbursed();
-    const approxProfit = computeApproxProfit();
-    const profitEarned = totalInterest();
-    const profitPercent = invested > 0 ? (profitEarned / invested * 100).toFixed(2) : '0.00';
-    const approxPercent = invested > 0 ? (approxProfit / invested * 100).toFixed(2) : '0.00';
+    const totalProfitAccurate = computeTotalProfitAccurate();
+    const profitEarnedRealised = totalInterest();
+    const profitPercentRealised = invested > 0 ? (profitEarnedRealised / invested * 100).toFixed(2) : '0.00';
+    const profitPercentAccurate = invested > 0 ? (totalProfitAccurate / invested * 100).toFixed(2) : '0.00';
     const dashboardHtml = `
       <p><strong>💰 Cash on Hand:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
       <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${outstandingPrincipal.toFixed(2)}</span></p>
       <p><strong>🏦 Total Invested (Disbursed):</strong> <span>₹${invested.toFixed(2)}</span></p>
-      <p><strong>📈 Approx Profit (ongoing):</strong> <span class="profit-green">₹${approxProfit.toFixed(2)} <span style="font-size:0.75rem;">(+${approxPercent}%)</span></span></p>
-      <p><strong>✅ Total Profit Earned:</strong> <span class="profit-green">₹${profitEarned.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercent}%)</span></span></p>
-      <p><strong>👥 Partner's Share (50%):</strong> <span>₹${(profitEarned/2).toFixed(2)}</span></p>
+      <p><strong>📈 Approx Profit (incl. accrued):</strong> <span class="profit-green">₹${totalProfitAccurate.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercentAccurate}%)</span></span></p>
+      <p><strong>✅ Total Profit Earned (realised):</strong> <span class="profit-green">₹${profitEarnedRealised.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercentRealised}%)</span></span></p>
+      <p><strong>👥 Partner's Share (50% of realised):</strong> <span>₹${(profitEarnedRealised/2).toFixed(2)}</span></p>
     `;
     document.getElementById('dashboardOutput').innerHTML = dashboardHtml;
     
@@ -798,10 +797,10 @@
     const totalInv = totalInvested();
     const capitalHtml = `
       <p><strong>💰 Current Cash:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
-      <p><strong>📈 Total Interest Earned:</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
+      <p><strong>📈 Total Interest Earned (realised):</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
       <p><strong>🏦 Initial Capital (Estimate):</strong> <span>₹${initCap>=0?initCap.toFixed(2):"0.00"}</span></p>
       <p><strong>📦 Total Disbursed (Principal):</strong> <span>₹${totalDisbursed().toFixed(2)}</span></p>
-      <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${totalOutstanding().toFixed(2)}</span></p>
+      <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${totalOutstandingPrincipal().toFixed(2)}</span></p>
       <p><strong>✅ Principal Recovered:</strong> <span>₹${totalPrincipalRecovered().toFixed(2)}</span></p>
     `;
     document.getElementById('capitalOutput').innerHTML = capitalHtml;
