@@ -32,6 +32,9 @@
     @media (max-width: 600px) { .container { width: 90%; padding: 10px; } #loanSelect { width: 100%; } }
     .role-badge { text-align: right; font-size: 0.7rem; margin-bottom: 10px; color: #0077b6; }
     .payment-panel { background: #f8f9fa; border-radius: 12px; padding: 12px; margin-bottom: 20px; }
+    .due-alert-row { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .section-title { font-weight: bold; margin: 15px 0 8px 0; color: #0077b6; font-size: 0.9rem; }
+    .paid-late { color: #dc3545; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -51,6 +54,12 @@
     <button id="homeBtn" class="small-btn" style="background:#6c757d;">🏠 Home</button>
   </div>
   
+  <!-- Due Alerts Section -->
+  <div id="dueAlertsSection" style="display:none; margin-bottom: 15px;">
+    <div class="section-title">📅 Upcoming Due Alerts (Next 3 days)</div>
+    <div id="dueAlertsContainer"></div>
+  </div>
+  
   <div id="loanSummary" class="output" style="margin-top:5px;">Select a loan to view details</div>
   
   <div id="adminAddBtn" style="display:none; margin:10px 0;">
@@ -63,7 +72,7 @@
   
   <div style="overflow-x: auto;">
     <table id="transactionTable" style="display:none;">
-      <thead><tr><th>#</th><th>Planned Date</th><th>Paid Date</th><th>Amount (₹)</th><th>Interest (₹)</th><th>Principal (₹)</th><th>Remaining (₹)</th><th>Remark</th><th class="action-col">Actions</th></tr></thead>
+      <thead><tr><th>#</th><th id="plannedDateHeader">Planned Date</th><th>DuePaid Date</th><th>Amount (₹)</th><th>Interest (₹)</th><th>Principal (₹)</th><th>Principal Balance (₹)</th><th>Remark</th><th class="action-col">Actions</th></tr></thead>
       <tbody id="tableBody"></tbody>
     </table>
   </div>
@@ -97,7 +106,14 @@
   function formatDateDMY(dateStr) {
     if (!dateStr) return '';
     let parts = dateStr.split('-');
-    if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return dateStr;
+  }
+
+  function convertToYMD(dateStr) {
+    if (!dateStr) return '';
+    let parts = dateStr.split('-');
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
     return dateStr;
   }
 
@@ -112,6 +128,7 @@
         cashCapital = d.cashCapital || 0;
       }
       populateLoanSelect();
+      showDueAlerts();
       if(currentLoanId) {
         renderTable();
         updatePaymentFields();
@@ -128,36 +145,137 @@
     else return loan.principalAmount;
   }
 
-  function recomputeRemaining(loan) {
-    const totalExpected = getTotalExpectedForLoan(loan);
-    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
-    return Math.max(0, totalExpected - totalPaid);
-  }
-
   function getPrincipalOutstanding(loan) {
     let remaining = loan.principalAmount;
-    transactions.filter(t => t.loanId == loan.id).forEach(t => { remaining -= (t.principalPortion || 0); });
+    transactions.filter(t => t.loanId == loan.id).forEach(t => { 
+      remaining -= (t.principalPortion || 0); 
+    });
     return Math.max(0, remaining);
+  }
+
+  function calculateAccruedInterest(loan) {
+    if (loan.method === 1 || loan.method === 2) {
+      const monthlyRate = loan.interestRate / 100;
+      const dailyRate = monthlyRate / 30;
+      const startDate = loan.startDate ? new Date(loan.startDate) : new Date();
+      const today = new Date();
+      let totalInterest = 0;
+      let runningPrincipal = loan.principalAmount;
+      const sortedTxns = transactions.filter(t => t.loanId === loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+      let lastDate = startDate;
+      
+      for (const txn of sortedTxns) {
+        const txnDate = new Date(txn.date);
+        const daysDiff = Math.max(0, Math.floor((txnDate - lastDate) / (1000 * 60 * 60 * 24)));
+        totalInterest += runningPrincipal * dailyRate * daysDiff;
+        runningPrincipal -= (txn.principalPortion || 0);
+        lastDate = txnDate;
+      }
+      
+      const finalDaysDiff = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
+      totalInterest += runningPrincipal * dailyRate * finalDaysDiff;
+      
+      return parseFloat(totalInterest.toFixed(2));
+    }
+    return 0;
+  }
+
+  function getInterestEarned(loan) {
+    return transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + (t.interestPortion || 0), 0);
+  }
+
+  function getInterestBalance(loan) {
+    if (loan.method === 1 || loan.method === 2) {
+      const accruedTotal = calculateAccruedInterest(loan);
+      const paidInterest = getInterestEarned(loan);
+      return Math.max(0, accruedTotal - paidInterest);
+    } else if (loan.method === 3 || loan.method === 4) {
+      const totalExpected = getTotalExpectedForLoan(loan);
+      const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
+      const principalOut = getPrincipalOutstanding(loan);
+      const remainingInterest = Math.max(0, totalExpected - totalPaid - principalOut);
+      return remainingInterest;
+    }
+    return 0;
   }
 
   function generateSchedule(loan) {
     if(!loan) return [];
+    if (loan.method !== 3 && loan.method !== 4) return [];
     const startDate = new Date(loan.startDate);
     let schedule = [];
     if(loan.method == 3) {
       for(let i=1; i<=(loan.tenure || 1); i++) {
         let due = new Date(startDate);
         due.setMonth(startDate.getMonth() + i);
-        schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.emiAmount });
+        schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.emiAmount, index: i });
       }
     } else if(loan.method == 4) {
       for(let i=1; i<=(loan.tenure || 44); i++) {
         let due = new Date(startDate);
         due.setDate(startDate.getDate() + (i*7));
-        schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.weeklyAmount });
+        schedule.push({ planned: due.toISOString().slice(0,10), expected: loan.weeklyAmount, index: i });
       }
     }
     return schedule;
+  }
+
+  function showDueAlerts() {
+    const alertsContainer = document.getElementById('dueAlertsContainer');
+    const alertsSection = document.getElementById('dueAlertsSection');
+    if (!alertsContainer) return;
+    
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const threeDaysLater = new Date(today);
+    threeDaysLater.setDate(today.getDate() + 3);
+    
+    const alerts = [];
+    
+    loans.forEach(loan => {
+      if (loan.status === 'closed') return;
+      if (loan.method !== 3 && loan.method !== 4) return;
+      
+      const schedule = generateSchedule(loan);
+      const cust = getCustomer(loan.customerId);
+      const customerName = cust ? cust.name : 'Unknown';
+      const loanTxns = transactions.filter(t => t.loanId == loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+      
+      for (let i = 0; i < schedule.length; i++) {
+        const inst = schedule[i];
+        const dueDate = new Date(inst.planned);
+        
+        const isPaid = i < loanTxns.length;
+        if (isPaid) continue;
+        
+        if (dueDate >= today && dueDate <= threeDaysLater) {
+          alerts.push({
+            loanNumber: loan.loanNumber,
+            customerName: customerName,
+            dueDate: inst.planned,
+            dueDateStr: formatDateDMY(inst.planned),
+            amount: inst.expected,
+            installmentNum: i + 1
+          });
+        }
+      }
+    });
+    
+    alerts.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
+    
+    if (alerts.length > 0) {
+      alertsSection.style.display = 'block';
+      alertsContainer.innerHTML = alerts.map(a => `
+        <div class="due-alert-row">
+          <span><strong>Loan #${a.loanNumber}</strong> - ${a.customerName}</span>
+          <span>Due: ${a.dueDateStr}</span>
+          <span>Amount: ₹${a.amount}</span>
+          <span>Installment #${a.installmentNum}</span>
+        </div>
+      `).join('');
+    } else {
+      alertsSection.style.display = 'none';
+    }
   }
 
   function renderTable() {
@@ -172,35 +290,56 @@
     document.getElementById('transactionTable').style.display = 'table';
     
     const cust = getCustomer(loan.customerId);
-    const totalExpected = getTotalExpectedForLoan(loan);
-    const remainingTotal = recomputeRemaining(loan);
+    const principalOut = getPrincipalOutstanding(loan);
+    const interestEarned = getInterestEarned(loan);
+    const interestBalance = getInterestBalance(loan);
+    
     document.getElementById('loanSummary').innerHTML = `
-      <strong>Loan #${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}</strong> | Total Amount: ₹${totalExpected} | Remaining: ₹${remainingTotal.toFixed(2)} | Status: ${loan.status.toUpperCase()}
+      <strong>Loan #${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}</strong><br>
+      Principal Balance: ₹${principalOut.toFixed(2)} | 
+      Interest Earned: ₹${interestEarned.toFixed(2)} | 
+      Interest Balance: ₹${interestBalance.toFixed(2)}<br>
+      Status: ${loan.status.toUpperCase()}
     `;
+
+    const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
+    const plannedHeader = document.getElementById('plannedDateHeader');
+    
+    if (isEMIorWeekly) {
+      plannedHeader.style.display = 'table-cell';
+    } else {
+      plannedHeader.style.display = 'none';
+    }
 
     const schedule = generateSchedule(loan);
     const loanTxns = transactions.filter(t => t.loanId == loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
 
-    let cumulativePaid = 0;
-
-    if(schedule.length > 0) {
-      schedule.forEach((sch, idx) => {
+    if (isEMIorWeekly && schedule.length > 0) {
+      // Show all schedule rows, but only show balance for paid ones
+      let cumulativePrincipal = 0;
+      
+      for (let idx = 0; idx < schedule.length; idx++) {
         const tr = tbody.insertRow();
         const matched = (idx < loanTxns.length) ? loanTxns[idx] : null;
+        const plannedDate = schedule[idx].planned;
+        const isPaid = matched !== null;
         
         tr.insertCell(0).innerText = idx + 1;
-        tr.insertCell(1).innerText = sch.planned;
+        tr.insertCell(1).innerText = formatDateDMY(plannedDate);
         
-        if(matched) {
-          tr.insertCell(2).innerText = matched.date;
+        if (matched) {
+          const paidDate = matched.date;
+          const isLate = new Date(paidDate) > new Date(plannedDate);
+          const dateClass = isLate ? 'paid-late' : '';
+          tr.insertCell(2).innerHTML = `<span class="${dateClass}">${formatDateDMY(paidDate)}</span>`;
           tr.insertCell(3).innerText = `₹${matched.amount}`;
           tr.insertCell(4).innerText = `₹${matched.interestPortion || 0}`;
           tr.insertCell(5).innerText = `₹${matched.principalPortion || 0}`;
-          cumulativePaid += matched.amount;
-          const remaining = Math.max(0, totalExpected - cumulativePaid);
-          tr.insertCell(6).innerText = `₹${remaining.toFixed(2)}`;
+          cumulativePrincipal += (matched.principalPortion || 0);
+          const remainingPrincipal = Math.max(0, loan.principalAmount - cumulativePrincipal);
+          tr.insertCell(6).innerText = `₹${remainingPrincipal.toFixed(2)}`;
           tr.insertCell(7).innerText = matched.remark || "";
         } else {
           tr.insertCell(2).innerText = "—";
@@ -208,7 +347,7 @@
           tr.insertCell(4).innerText = "—";
           tr.insertCell(5).innerText = "—";
           tr.insertCell(6).innerText = "—";
-          tr.insertCell(7).innerText = "";
+          tr.insertCell(7).innerText = "—";
         }
         
         const actionCell = tr.insertCell(8);
@@ -216,27 +355,30 @@
           if(matched) {
             actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑</button>`;
           } else {
-            actionCell.innerHTML = `<button class="small-btn success" onclick="payPlanned('${sch.planned}', ${sch.expected})">+ Pay</button>`;
+            actionCell.innerHTML = `<button class="small-btn success" onclick="payPlanned('${plannedDate}', ${schedule[idx].expected})">+ Pay</button>`;
           }
         } else {
           actionCell.innerHTML = "";
         }
-      });
+      }
     } 
     else {
-      let cumulative = 0;
+      let cumulativePrincipal = 0;
+      
       loanTxns.forEach((txn, idx) => {
         const tr = tbody.insertRow();
-        cumulative += txn.amount;
-        const remaining = Math.max(0, totalExpected - cumulative);
+        cumulativePrincipal += (txn.principalPortion || 0);
+        const remainingPrincipal = Math.max(0, loan.principalAmount - cumulativePrincipal);
+        
         tr.insertCell(0).innerText = idx + 1;
         tr.insertCell(1).innerText = "—";
-        tr.insertCell(2).innerText = txn.date;
+        tr.insertCell(2).innerText = formatDateDMY(txn.date);
         tr.insertCell(3).innerText = `₹${txn.amount}`;
         tr.insertCell(4).innerText = `₹${txn.interestPortion || 0}`;
         tr.insertCell(5).innerText = `₹${txn.principalPortion || 0}`;
-        tr.insertCell(6).innerText = `₹${remaining.toFixed(2)}`;
+        tr.insertCell(6).innerText = `₹${remainingPrincipal.toFixed(2)}`;
         tr.insertCell(7).innerText = txn.remark || "";
+        
         const actionCell = tr.insertCell(8);
         if(currentRole === 'admin') {
           actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${txn.id})">🗑</button>`;
@@ -244,6 +386,20 @@
           actionCell.innerHTML = "";
         }
       });
+      
+      if (loanTxns.length === 0) {
+        const tr = tbody.insertRow();
+        tr.insertCell(0).innerText = "—";
+        tr.insertCell(1).innerText = "—";
+        tr.insertCell(2).innerText = "—";
+        tr.insertCell(3).innerText = "—";
+        tr.insertCell(4).innerText = "—";
+        tr.insertCell(5).innerText = "—";
+        tr.insertCell(6).innerText = `₹${loan.principalAmount.toFixed(2)}`;
+        tr.insertCell(7).innerText = "—";
+        const actionCell = tr.insertCell(8);
+        actionCell.innerHTML = "";
+      }
     }
 
     if(currentRole !== 'admin') {
@@ -262,11 +418,17 @@
   function populateLoanSelect() {
     const select = document.getElementById('loanSelect');
     select.innerHTML = '<option value="">-- Choose Loan --</option>';
-    loans.forEach(l => {
+    // Sort: active first, then closed
+    const sortedLoans = [...loans].sort((a,b) => {
+      if (a.status === 'closed' && b.status !== 'closed') return 1;
+      if (a.status !== 'closed' && b.status === 'closed') return -1;
+      return 0;
+    });
+    sortedLoans.forEach(l => {
       const c = getCustomer(l.customerId);
-      const totalExpected = getTotalExpectedForLoan(l);
-      const remaining = recomputeRemaining(l);
-      const optionText = `#${l.loanNumber} - ${c ? c.name : 'N/A'} | Total: ₹${totalExpected} | Balance: ₹${remaining.toFixed(2)}`;
+      const principalOut = getPrincipalOutstanding(l);
+      const statusText = l.status === 'closed' ? ' [CLOSED]' : '';
+      const optionText = `#${l.loanNumber} - ${c ? c.name : 'N/A'}${statusText} | Balance: ₹${principalOut.toFixed(2)}`;
       const opt = document.createElement('option');
       opt.value = l.id;
       opt.textContent = optionText;
@@ -295,8 +457,8 @@
         <input type="number" id="interestPortion" placeholder="Interest amount" step="any" value="0">
         <label>Principal Portion (₹)</label>
         <input type="number" id="principalPortion" placeholder="Principal amount" step="any" value="0">
-        <label>Date (YYYY-MM-DD)</label>
-        <input type="date" id="paymentDate" value="${new Date().toISOString().slice(0,10)}">
+        <label>Date (DD-MM-YYYY)</label>
+        <input type="text" id="paymentDate" placeholder="DD-MM-YYYY" value="${formatDateDMY(new Date().toISOString().slice(0,10))}">
         <label>Remark</label>
         <input type="text" id="paymentRemark" placeholder="Optional">
         <small class="text-muted">Total amount = Interest + Principal</small>
@@ -305,8 +467,8 @@
       container.innerHTML = `
         <label>Amount (₹)</label>
         <input type="number" id="paymentAmount" placeholder="Enter amount" step="any">
-        <label>Date (YYYY-MM-DD)</label>
-        <input type="date" id="paymentDate" value="${new Date().toISOString().slice(0,10)}">
+        <label>Date (DD-MM-YYYY)</label>
+        <input type="text" id="paymentDate" placeholder="DD-MM-YYYY" value="${formatDateDMY(new Date().toISOString().slice(0,10))}">
         <label>Remark</label>
         <input type="text" id="paymentRemark" placeholder="Optional">
       `;
@@ -317,6 +479,11 @@
     const loan = getLoan(loanId);
     if(!loan) return { success: false, msg: "Loan not found" };
     if(loan.status === 'closed') return { success: false, msg: "Loan already closed" };
+    
+    const isoDate = convertToYMD(date);
+    if (!isoDate || isoDate.length !== 10) {
+      return { success: false, msg: "Invalid date format. Use DD-MM-YYYY" };
+    }
     
     if(loan.method === 1) {
       if(interestPortion < 0 || principalPortion < 0) return { success: false, msg: "Portions cannot be negative" };
@@ -331,7 +498,7 @@
       const newTxn = {
         id: Date.now(),
         loanId: loan.id,
-        date: date,
+        date: isoDate,
         amount: total,
         interestPortion: interestPortion,
         principalPortion: principalPortion,
@@ -341,9 +508,8 @@
       transactions.push(newTxn);
       cashCapital += total;
       
-      const totalExpected = getTotalExpectedForLoan(loan);
-      const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
-      if(totalPaid >= totalExpected) loan.status = 'closed';
+      const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
+      if(totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
       else loan.status = 'active';
       
       await saveToCloud();
@@ -384,13 +550,13 @@
         if(principalPortionAuto > principalRemaining) principalPortionAuto = principalRemaining;
       }
     }
-    else { // method 2 (Flexible)
+    else {
       let principalRemaining = getPrincipalOutstanding(loan);
       const monthlyRate = loan.interestRate / 100;
       const loanTxns = transactions.filter(t=>t.loanId===loan.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
       let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
       if(loanTxns.length) lastDate = new Date(loanTxns[0].date);
-      let currentDate = new Date(date);
+      let currentDate = new Date(isoDate);
       if(isNaN(currentDate)) currentDate = new Date();
       const diffDays = Math.max(1, Math.ceil((currentDate - lastDate)/(1000*60*60*24)));
       const dailyRate = monthlyRate/30;
@@ -410,7 +576,7 @@
     const newTxn = {
       id: Date.now(),
       loanId: loan.id,
-      date: date,
+      date: isoDate,
       amount: amount,
       interestPortion: interestPortionAuto,
       principalPortion: principalPortionAuto,
@@ -420,9 +586,8 @@
     transactions.push(newTxn);
     cashCapital += amount;
     
-    const totalExpected = getTotalExpectedForLoan(loan);
-    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
-    if(totalPaid >= totalExpected) loan.status = 'closed';
+    const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
+    if(totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
     else loan.status = 'active';
     
     await saveToCloud();
@@ -431,7 +596,7 @@
   }
 
   window.payPlanned = async (plannedDate, expectedAmount) => {
-    const todayDate = new Date().toISOString().slice(0,10);
+    const todayDate = formatDateDMY(new Date().toISOString().slice(0,10));
     const remark = prompt("Enter remark (optional):", "");
     if(remark !== null) {
       const result = await processPayment(currentLoanId, todayDate, expectedAmount, 0, 0, remark);
@@ -449,9 +614,8 @@
       transactions.splice(idx, 1);
       const loan = getLoan(currentLoanId);
       if(loan) {
-        const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
-        const totalExpected = getTotalExpectedForLoan(loan);
-        if(totalPaid >= totalExpected) loan.status = 'closed';
+        const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
+        if(totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
         else loan.status = 'active';
       }
       await saveToCloud();
@@ -469,8 +633,8 @@
   document.getElementById('addPaymentBtn').onclick = async () => {
     const loan = getLoan(currentLoanId);
     if(!loan) { alert("Select a loan first"); return; }
-    const date = document.getElementById('paymentDate').value;
-    if(!date) { alert("Select date"); return; }
+    const dateInput = document.getElementById('paymentDate').value;
+    if(!dateInput) { alert("Enter date"); return; }
     const remark = document.getElementById('paymentRemark').value;
     
     if(loan.method === 1) {
@@ -479,7 +643,7 @@
       if(isNaN(interest) || isNaN(principal)) { alert("Enter valid numbers"); return; }
       const total = interest + principal;
       if(total <= 0) { alert("Total amount must be positive"); return; }
-      const result = await processPayment(currentLoanId, date, total, interest, principal, remark);
+      const result = await processPayment(currentLoanId, dateInput, total, interest, principal, remark);
       if(result.success) {
         if(currentRole === 'admin') alert("Payment recorded successfully!");
         document.getElementById('interestPortion').value = 0;
@@ -489,7 +653,7 @@
     } else {
       const amount = parseFloat(document.getElementById('paymentAmount').value);
       if(isNaN(amount) || amount <= 0) { alert("Enter valid amount"); return; }
-      const result = await processPayment(currentLoanId, date, amount, 0, 0, remark);
+      const result = await processPayment(currentLoanId, dateInput, amount, 0, 0, remark);
       if(result.success) {
         if(currentRole === 'admin') alert("Payment recorded successfully!");
         document.getElementById('paymentAmount').value = '';
@@ -498,7 +662,7 @@
     }
   };
 
-  // PDF Export with loan number
+  // PDF Export with border, remark column, and red color for late payments
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -510,44 +674,74 @@
     const cust = getCustomer(loan.customerId);
     const customerName = cust ? cust.name : "Vsquar";
     const today = new Date();
-    const dateStr = today.toISOString().slice(0,10);
+    const dateStr = formatDateDMY(today.toISOString().slice(0,10));
     const fileName = `Loan_${loan.loanNumber}_${customerName}_${dateStr}.pdf`;
-    const totalExpected = getTotalExpectedForLoan(loan);
-    const remaining = recomputeRemaining(loan);
+    const principalOut = getPrincipalOutstanding(loan);
+    const interestBalance = getInterestBalance(loan);
+    
+    // Set page margin: 10mm from all edges
+    const margin = 10;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - (margin * 2);
+    
+    // Draw border box (1mm line, 10mm from edges)
+    doc.setLineWidth(0.5);
+    doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
     
     doc.setFontSize(18);
-    doc.text(`Payment Receipt - Loan #${loan.loanNumber}`, 14, 20);
+    doc.text(`Payment Receipt - Loan #${loan.loanNumber}`, margin + 5, margin + 15);
     doc.setFontSize(12);
-    doc.text(`Customer: ${customerName}`, 14, 30);
+    doc.text(`Customer: ${customerName}`, margin + 5, margin + 25);
     doc.setFontSize(10);
-    doc.text(`Total Amount: ₹${totalExpected}`, 14, 38);
-    if (remaining <= 0.01) {
-      doc.text("✅ Loan Closed", 14, 45);
-      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 52);
+    doc.text(`Principal Balance: ${principalOut.toFixed(2)}`, margin + 5, margin + 33);
+    doc.text(`Interest Balance: ${interestBalance.toFixed(2)}`, margin + 5, margin + 40);
+    if (principalOut <= 0.01) {
+      doc.text("Loan Closed", margin + 5, margin + 47);
+      doc.text(`Generated on: ${today.toLocaleString()}`, margin + 5, margin + 54);
     } else {
-      doc.text(`Generated on: ${today.toLocaleString()}`, 14, 45);
+      doc.text(`Generated on: ${today.toLocaleString()}`, margin + 5, margin + 47);
     }
     
+    // Build table rows with data
     const rows = [];
-    document.querySelectorAll('#tableBody tr').forEach(tr => {
+    const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
+    const tableRows = document.querySelectorAll('#tableBody tr');
+    
+    for (let tr of tableRows) {
       const rowData = [];
       const cells = tr.querySelectorAll('td');
-      for(let i = 0; i < Math.min(cells.length, 8); i++) {
-        let cellText = cells[i].innerText;
+      for (let i = 0; i < cells.length; i++) {
+        if (i === 1 && !isEMIorWeekly) continue;
+        if (i === cells.length - 1) continue;
+        let cellText = cells[i]?.innerText || '';
         cellText = cellText.replace(/₹/g, '').trim();
-        rowData.push(cellText);
+        if (cellText !== '—' || (i === 7 && cellText === '—')) {
+          rowData.push(cellText);
+        } else if (cellText === '—' && i !== 7) {
+          rowData.push('');
+        } else if (i === 7) {
+          rowData.push(cellText);
+        }
       }
-      rows.push(rowData);
-    });
+      if (rowData.length > 0) rows.push(rowData);
+    }
     
-    let startY = remaining <= 0.01 ? 58 : 51;
+    let headers = ['#', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Principal Bal', 'Remark'];
+    if (isEMIorWeekly) {
+      headers = ['#', 'Planned', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Principal Bal', 'Remark'];
+    }
+    
+    let startY = principalOut <= 0.01 ? 60 : 53;
+    
     doc.autoTable({
       startY: startY,
-      head: [['#', 'Planned', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Remaining', 'Remark']],
+      head: [headers],
       body: rows,
       theme: 'striped',
-      styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [0, 119, 182] }
+      styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+      headStyles: { fillColor: [0, 119, 182], textColor: [255, 255, 255] },
+      margin: { left: margin, right: margin }
     });
     
     doc.save(fileName);
