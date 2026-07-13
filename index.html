@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-  <title>Vsquar · Loan Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>V² · Loan Manager</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -13,7 +13,7 @@
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
           .then(reg => {
-            console.log('Vsquar PWA: Registered');
+            console.log('V² PWA: Registered');
             reg.onupdatefound = () => {
               const newWorker = reg.installing;
               newWorker.onstatechange = () => {
@@ -26,7 +26,7 @@
               };
             };
           })
-          .catch(err => console.log('Vsquar PWA: Error', err));
+          .catch(err => console.log('V² PWA: Error', err));
       });
     }
   </script>
@@ -45,7 +45,8 @@
     .output p:last-child { margin-bottom: 0; }
     .output span { font-weight: bold; }
     .profit-green, .profit-green span { color: #2e7d32 !important; font-weight: bold; }
-    button { margin-top: 15px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85em; }
+    button { margin-top: 15px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85em; transition: background 0.2s; }
+    button:active { background: #0077b6; }
     button.small-btn { width: auto; padding: 5px 12px; margin: 0 4px; display: inline-block; font-size: 0.7em; }
     button.danger { background: #dc3545; }
     button.warning { background: #f4a261; }
@@ -53,7 +54,7 @@
     .footer { text-align: center; margin-top: 20px; background: #0077b6; color: #fff; padding: 10px; font-size: 0.75em; border-radius: 8px; position: relative; }
     .tabs { display: flex; justify-content: space-around; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
     .tab { cursor: pointer; padding: 7px 14px; background: #0077b6; color: white; border-radius: 8px; font-size: 0.85em; flex: 1; text-align: center; margin: 0 2px; }
-    .tab.active { background: #00b4d8; }
+    .tab.active { background: #00b4d8; font-weight: bold; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
     .stats-row { display: flex; justify-content: space-between; background: #e0f7fa; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.8em; gap: 10px; flex-wrap: wrap; }
@@ -62,7 +63,7 @@
     .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
     .badge { background: #90e0ef; padding: 2px 8px; border-radius: 20px; font-size: 0.7em; }
     .text-muted { color: #666; font-size: 0.7em; }
-    hr { margin: 10px 0; }
+    hr { margin: 10px 0; border: 0; border-top: 1px solid #ddd; }
     .due-card { background: #fff3e0; border-left: 4px solid #f4a261; padding: 8px 12px; margin-bottom: 8px; border-radius: 8px; font-size: 0.8em; }
     .due-card.overdue { background: #ffe0e0; border-left-color: #dc3545; }
     .due-card.overdue .due-customer-name { color: #dc3545; font-weight: bold; }
@@ -71,10 +72,10 @@
     .countdown-modal .modal-content { text-align: center; }
     .countdown-timer { font-size: 2rem; font-weight: bold; color: #dc3545; margin: 15px 0; }
     @media (max-width: 600px) {
-      .container { width: 90%; padding: 10px; }
+      .container { width: 95%; padding: 10px; }
       input, select, textarea { width: 100%; }
-      .tab { padding: 5px 9px; font-size: 0.75em; }
-      button { padding: 8px; }
+      .tab { padding: 8px 5px; font-size: 0.75em; }
+      button { padding: 10px; }
       .output p { margin-bottom: 10px; }
     }
     .password-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
@@ -92,7 +93,7 @@
 <body>
 <div id="passwordModal" class="password-overlay">
   <div class="password-card">
-    <h2>🔐 Vsquar Access</h2>
+    <h2>🔐 V² Access</h2>
     <p>Enter password</p>
     <input type="password" id="passwordInput" placeholder="Password">
     <button id="unlockBtn">Unlock</button>
@@ -104,12 +105,13 @@
 
 <div id="mainApp" style="display:none">
   <div class="container">
-    <h1>Vsquar</h1>
+    <h1>V²</h1>
     <div class="tabs">
-      <div class="tab active" data-tab="dashboard">Dashboard</div>
+      <div class="tab active" data-tab="dashboard">Home</div>
       <div class="tab" data-tab="customers">Customers</div>
       <div class="tab" data-tab="loans">Loans</div>
       <div class="tab" data-tab="transactions">Transactions</div>
+      <div class="tab" data-tab="bulkPay" style="background:#2a9d8f;">⚡ Quick Pay</div>
       <div class="tab" data-tab="capital">Capital</div>
     </div>
 
@@ -120,7 +122,7 @@
         <div class="stat-item">👥 Customers: <span id="dashCustomers">0</span></div>
         <div class="stat-item">🏦 Active Loans: <span id="dashActiveLoans">0</span></div>
       </div>
-      <button id="transactionManagerBtn" class="transaction-manager-btn" style="background:#2a9d8f;">📋 Detailed Transaction Manager</button>
+      <button id="transactionManagerBtn" class="transaction-manager-btn">📋 Detailed Transaction Manager</button>
       <button id="moreDetailsBtn" class="more-details-btn" style="background:#6c757d;">📈 Business Analytics</button>
       <div style="margin-top:20px"><strong>📅 Due Alerts</strong><div id="dueAlertsContainer"></div></div>
     </div>
@@ -170,7 +172,25 @@
       <div id="transactionList"></div>
     </div>
 
-    <!-- Capital Tab -->
+    <!-- Bulk Pay -->
+    <div id="bulkPay" class="tab-content">
+      <div style="background:#e0f7fa; padding:12px; border-radius:12px; margin-bottom:15px; font-size:0.85em;">
+        ഒന്നിലധികം ലോണുകൾ ഉള്ള കസ്റ്റമറിൽ നിന്നും ഒന്നിച്ച് പണം ലഭിക്കുമ്പോൾ തനിയെ എല്ലാ ലോണിലേക്കും ഡിവൈഡ് ചെയ്ത് സേവ് ചെയ്യാനുള്ള ടാബ്.
+      </div>
+      <label>Select Customer</label>
+      <select id="bulkCustId"></select>
+      
+      <label>Payment Date</label>
+      <input type="date" id="bulkDate">
+      
+      <label>Total Amount Received (₹)</label>
+      <input type="number" id="bulkTotalAmount" placeholder="e.g., 2000">
+
+      <div id="bulkPreview" style="margin-top:15px; padding:10px; border-radius:8px; font-size:0.85em;"></div>
+      <button id="bulkSubmitBtn" style="display:none; background:#2a9d8f; font-size:1em;">✅ Confirm & Pay All</button>
+    </div>
+
+    <!-- Capital -->
     <div id="capital" class="tab-content">
       <div class="output" id="capitalOutput" style="text-align:left"></div>
       <div class="output" style="margin-top:10px; background:#e6f4ea;">
@@ -192,8 +212,8 @@
     </div>
 
     <div class="footer">
-      Vsquar · Equal Partners · Cloud Sync
-      <div id="syncStatus" class="sync-status-bottom">🔄 Syncing...</div>
+      V² · Equal Partners · Cloud Sync
+      <div id="syncStatus" class="sync-status-bottom">🔄 Ready</div>
     </div>
   </div>
 </div>
@@ -207,6 +227,7 @@
     messagingSenderId: "887219643486",
     appId: "1:887219643486:web:0cb001f2c72039a00240cf"
   };
+  
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const COLLECTION = "VSQURE";
@@ -222,12 +243,6 @@
     return dateStr;
   }
 
-  function convertToISO(dateStr) {
-    let parts = dateStr.split('.');
-    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    return dateStr;
-  }
-
   function getNextLoanNumber() {
     let maxNum = 0;
     loans.forEach(loan => {
@@ -236,8 +251,7 @@
         if (!isNaN(num) && num > maxNum) maxNum = num;
       }
     });
-    let next = maxNum + 1;
-    return next.toString().padStart(3, '0');
+    return (maxNum + 1).toString().padStart(3, '0');
   }
 
   async function assignMissingLoanNumbers() {
@@ -245,73 +259,67 @@
     const loansWithoutNumber = loans.filter(l => !l.loanNumber);
     if (loansWithoutNumber.length === 0) return;
     loansWithoutNumber.sort((a,b) => a.id - b.id);
-    let currentNumber = 1;
+    
+    let maxNum = 0;
+    loans.forEach(loan => {
+      if (loan.loanNumber) {
+        let num = parseInt(loan.loanNumber, 10);
+        if (!isNaN(num) && num > maxNum) maxNum = num;
+      }
+    });
+    let currentNumber = maxNum + 1;
+
     for (let loan of loansWithoutNumber) {
       loan.loanNumber = currentNumber.toString().padStart(3, '0');
       currentNumber++;
       changed = true;
     }
-    if (changed) {
-      await saveAll();
-      renderAll();
-    }
+    if (changed && currentRole === "admin") await syncToFirebase();
   }
 
   async function syncToFirebase() {
     if (currentRole !== "admin") return;
     try {
-      await db.collection(COLLECTION).doc(DOC_ID).set({ customers, loans, transactions, cashCapital, capitalHistory, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() });
+      document.getElementById('syncStatus').innerHTML = "🔄 Syncing...";
+      await db.collection(COLLECTION).doc(DOC_ID).set({ 
+        customers, loans, transactions, cashCapital, capitalHistory, 
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp() 
+      });
       document.getElementById('syncStatus').innerHTML = "✅ Synced";
       setTimeout(() => document.getElementById('syncStatus').innerHTML = "☁️ Active", 2000);
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+      console.error(e);
+      document.getElementById('syncStatus').innerHTML = "❌ Sync Error";
+    }
   }
-  async function loadData() {
-    try {
-      const doc = await db.collection(COLLECTION).doc(DOC_ID).get();
+
+  function loadData() {
+    db.collection(COLLECTION).doc(DOC_ID).onSnapshot(async (doc) => {
       if(doc.exists) {
         const d = doc.data();
-        customers = d.customers || []; loans = d.loans || []; transactions = d.transactions || []; cashCapital = d.cashCapital || 0;
+        customers = d.customers || []; 
+        loans = d.loans || []; 
+        transactions = d.transactions || []; 
+        cashCapital = d.cashCapital || 0;
         capitalHistory = d.capitalHistory || [];
+        
         localStorage.setItem('vsquar_customers', JSON.stringify(customers));
         localStorage.setItem('vsquar_loans', JSON.stringify(loans));
         localStorage.setItem('vsquar_transactions', JSON.stringify(transactions));
         localStorage.setItem('vsquar_cashCapital', cashCapital);
         localStorage.setItem('vsquar_capitalHistory', JSON.stringify(capitalHistory));
-      } else loadLocalBackup();
-      await assignMissingLoanNumbers();
-      await ensureInitialCapitalHistory();
-    } catch(e) { loadLocalBackup(); }
-  }
-  
-  async function ensureInitialCapitalHistory() {
-    if (currentRole !== "admin") return;
-    const missingEntries = [
-      { amount: 40000, date: "23.03.2026", desc: "Initial investment" },
-      { amount: 20000, date: "06.04.2026", desc: "Additional capital" },
-      { amount: 50000, date: "08.04.2026", desc: "Additional capital" },
-      { amount: 10000, date: "12.04.2026", desc: "Additional capital" },
-      { amount: 18000, date: "19.04.2026", desc: "Additional capital" }
-    ];
-    let added = false;
-    for (const entry of missingEntries) {
-      const isoDate = convertToISO(entry.date);
-      const exists = capitalHistory.some(h => h.date === isoDate && Math.abs(h.amount - entry.amount) < 1);
-      if (!exists) {
-        capitalHistory.unshift({
-          id: Date.now() + Math.random(),
-          type: 'add',
-          amount: entry.amount,
-          date: isoDate,
-          timestamp: new Date(isoDate).toISOString(),
-          remark: entry.desc
-        });
-        added = true;
+        
+        await assignMissingLoanNumbers();
+        renderAll();
+      } else {
+        loadLocalBackup();
+        renderAll();
       }
-    }
-    if (added) {
-      saveAll();
+    }, (error) => {
+      console.error("Firebase Snapshot Error: ", error);
+      loadLocalBackup();
       renderAll();
-    }
+    });
   }
 
   function loadLocalBackup() {
@@ -321,6 +329,7 @@
     cashCapital = parseFloat(localStorage.getItem('vsquar_cashCapital')||0);
     capitalHistory = JSON.parse(localStorage.getItem('vsquar_capitalHistory')||'[]');
   }
+
   function saveAll() {
     if(currentRole !== "admin") return;
     localStorage.setItem('vsquar_customers', JSON.stringify(customers));
@@ -333,8 +342,8 @@
 
   function addCapitalHistory(type, amount, dateStr) {
     if(currentRole !== "admin") return;
-    capitalHistory.unshift({ id: Date.now()+Math.random(), type, amount, date: dateStr, timestamp: new Date().toISOString() });
-    if(capitalHistory.length > 100) capitalHistory.pop();
+    capitalHistory.unshift({ id: Date.now()+Math.random(), type, amount, date: dateStr, timestamp: new Date().toISOString(), remark: type === 'add' ? 'Manual Addition' : 'Manual Withdrawal' });
+    if(capitalHistory.length > 200) capitalHistory.pop();
     saveAll();
   }
 
@@ -348,7 +357,6 @@
     return Math.max(0, loan.principalAmount - totalPrincipalRecovered);
   }
 
-  // Accurate accrued interest from last event (start or last payment) up to given date
   function getAccruedInterestUpToDate(loan, asOfDate, principalBalance = null) {
     if (loan.method === 4) return 0;
     if (!loan.interestRate || loan.interestRate === 0) return 0;
@@ -369,7 +377,6 @@
     return parseFloat(interest.toFixed(2));
   }
 
-  // Total profit (realised + accrued) = interest collected so far + accrued interest on outstanding principal
   function computeTotalProfitAccurate() {
     let collectedInterest = transactions.reduce((sum, t) => sum + (t.interestPortion || 0), 0);
     let accruedNow = 0;
@@ -385,7 +392,6 @@
     return collectedInterest + accruedNow;
   }
 
-  // For dashboard approximate profit percentage relative to disbursed
   function totalDisbursed() { return loans.reduce((s,l)=>s+l.principalAmount,0); }
   function totalInterest() { return transactions.reduce((s,t)=>s+(t.interestPortion||0),0); }
   function totalPrincipalRecovered() { return transactions.reduce((s,t)=>s+(t.principalPortion||0),0); }
@@ -444,15 +450,7 @@
       if (isInstallmentPaid(loan, inst.planned, i+1)) continue;
       const diffDays = Math.floor((dueDate - today) / (1000*60*60*24));
       if (diffDays <= 3) {
-        return {
-          customer: getCustomer(loan.customerId)?.name || "Unknown",
-          dueDate: inst.planned,
-          dueDateStr: formatDateDMY(inst.planned),
-          isOverdue: dueDate < today,
-          methodText: loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`,
-          installmentNum: i+1,
-          loanNumber: loan.loanNumber
-        };
+        return { customer: getCustomer(loan.customerId)?.name || "Unknown", dueDate: inst.planned, dueDateStr: formatDateDMY(inst.planned), isOverdue: dueDate < today, methodText: loan.method===4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`, installmentNum: i+1, loanNumber: loan.loanNumber };
       }
     }
     return null;
@@ -479,19 +477,10 @@
       const dailyRate = monthlyRate / 30;
       let interestAccrued = outstandingPrincipal * dailyRate * diffDays;
       interestAccrued = parseFloat(interestAccrued.toFixed(2));
-      if (amount <= interestAccrued) {
-        interestPortion = amount;
-        principalPortion = 0;
-      } else {
-        interestPortion = interestAccrued;
-        principalPortion = amount - interestAccrued;
-        if (principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal;
-      }
+      if (amount <= interestAccrued) { interestPortion = amount; principalPortion = 0; }
+      else { interestPortion = interestAccrued; principalPortion = amount - interestAccrued; if (principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal; }
     } 
-    else if (loan.method === 1) {
-      interestPortion = amount;
-      principalPortion = 0;
-    }
+    else if (loan.method === 1) { interestPortion = amount; principalPortion = 0; }
     else if (loan.method === 3) {
       const monthlyRate = loan.interestRate / 100;
       let interestDue = outstandingPrincipal * monthlyRate;
@@ -501,42 +490,137 @@
       if (principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal;
     }
     else if (loan.method === 4) {
-      if (amount <= outstandingPrincipal) {
-        principalPortion = amount; interestPortion = 0;
-      } else {
-        principalPortion = outstandingPrincipal; interestPortion = amount - outstandingPrincipal;
-      }
+      if (amount <= outstandingPrincipal) { principalPortion = amount; interestPortion = 0; }
+      else { principalPortion = outstandingPrincipal; interestPortion = amount - outstandingPrincipal; }
     }
 
-    const newTxn = { 
-      id: Date.now() + Math.random(), 
-      loanId: loan.id, 
-      date, 
-      amount, 
-      interestPortion, 
-      principalPortion, 
-      remark: remark || "", 
-      timestamp: new Date().toISOString() 
-    };
+    const newTxn = { id: Date.now() + Math.random(), loanId: loan.id, date, amount, interestPortion, principalPortion, remark: remark || "", timestamp: new Date().toISOString() };
     transactions.push(newTxn);
     cashCapital += amount;
     
     const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + (t.principalPortion || 0), 0);
-    if (totalPaidPrincipal >= loan.principalAmount - 0.01) {
-      loan.status = 'closed';
-    } else {
-      loan.status = 'active';
-    }
+    if (totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
+    else loan.status = 'active';
     
     saveAll();
     return { success: true, msg: "Payment added successfully!", txn: newTxn };
   }
 
+  // ===== FIXED: Missing deleteTransaction =====
+  function deleteTransaction(txnId) {
+    if(currentRole !== "admin") return false;
+    const txn = transactions.find(t => t.id == txnId);
+    if(!txn) return false;
+    
+    // 5-second countdown confirmation
+    showCountdownConfirm("Delete this transaction permanently?", () => {
+      const idx = transactions.findIndex(t => t.id == txnId);
+      if(idx !== -1) {
+        cashCapital -= transactions[idx].amount;
+        transactions.splice(idx, 1);
+        // Re-evaluate loan statuses
+        loans.forEach(l => {
+          const totalPaidPrincipal = transactions.filter(t => t.loanId == l.id).reduce((sum, t) => sum + (t.principalPortion || 0), 0);
+          if(totalPaidPrincipal >= l.principalAmount) l.status = 'closed';
+          else l.status = 'active';
+        });
+        saveAll();
+        renderAll();
+      }
+    });
+    return true;
+  }
+
+  // ===== FIXED: Missing editTransaction =====
+  function editTransaction(txnId, newAmount, newDate, newRemark) {
+    if(currentRole !== "admin") return false;
+    const txn = transactions.find(t => t.id == txnId);
+    if(!txn) return false;
+    
+    // Remove old transaction
+    cashCapital -= txn.amount;
+    const idx = transactions.findIndex(t => t.id == txnId);
+    transactions.splice(idx, 1);
+    
+    // Add back with new values
+    const result = addTransaction(txn.loanId, newDate, newAmount, newRemark);
+    if(!result.success) {
+      // Rollback
+      cashCapital += txn.amount;
+      transactions.push(txn);
+      saveAll();
+      return false;
+    }
+    saveAll();
+    return true;
+  }
+
+  // ===== FIXED: Missing showCloseLoanModal =====
+  function showCloseLoanModal(loanId) {
+    const loan = getLoan(loanId);
+    if(!loan) return;
+    if(loan.status === 'closed') {
+      alert("Loan already closed");
+      return;
+    }
+    
+    const principalBal = getPrincipalRemaining(loan);
+    if(principalBal <= 0.01) {
+      loan.status = 'closed';
+      saveAll();
+      renderAll();
+      alert("Loan already fully paid. Marked as closed.");
+      return;
+    }
+    
+    // Calculate total due including accrued interest
+    const today = new Date().toISOString().slice(0,10);
+    const accruedInterest = getAccruedInterestUpToDate(loan, today, principalBal);
+    const totalDue = principalBal + accruedInterest;
+    
+    const modalDiv = document.createElement('div');
+    modalDiv.className = 'modal';
+    modalDiv.innerHTML = `
+      <div class="modal-content">
+        <h3>Close Loan #${loan.loanNumber}</h3>
+        <p><strong>Principal Balance:</strong> ₹${principalBal.toFixed(2)}</p>
+        <p><strong>Accrued Interest:</strong> ₹${accruedInterest.toFixed(2)}</p>
+        <p><strong>Total Due:</strong> ₹${totalDue.toFixed(2)}</p>
+        <label>Closing Date</label>
+        <input type="date" id="closeDate" value="${today}">
+        <div class="flex-btns">
+          <button id="closeConfirmBtn" style="background:#2a9d8f;">Confirm Close</button>
+          <button id="closeCancelBtn" style="background:#6c757d;">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modalDiv);
+    
+    modalDiv.querySelector('#closeConfirmBtn').onclick = () => {
+      const closeDate = modalDiv.querySelector('#closeDate').value;
+      if(!closeDate) { alert("Select date"); return; }
+      
+      // Use closeLoanWithAccrued
+      const result = closeLoanWithAccrued(loanId, closeDate, totalDue, principalBal, accruedInterest);
+      if(result) {
+        renderAll();
+        alert(`Loan #${loan.loanNumber} closed successfully!`);
+        modalDiv.remove();
+      } else {
+        alert("Failed to close loan");
+      }
+    };
+    
+    modalDiv.querySelector('#closeCancelBtn').onclick = () => modalDiv.remove();
+  }
+
+  // Close loan with full settlement
   function closeLoanWithAccrued(loanId, closeDate, totalDue, principalPortionVal, interestPortionVal) {
     if(currentRole !== "admin") return false;
     const loan = getLoan(loanId);
     if(!loan || loan.status === 'closed') return false;
     if(totalDue <= 0) return false;
+    
     const newTxn = {
       id: Date.now() + Math.random(),
       loanId: loan.id,
@@ -554,35 +638,7 @@
     return true;
   }
 
-  function createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmount) {
-    if(currentRole !== "admin") return false;
-    if(amount > cashCapital) return false;
-    let emi = null, weeklyAmt = null;
-    if(method === 3) {
-      const r = rate/100;
-      emi = amount * r * Math.pow(1+r, tenure) / (Math.pow(1+r, tenure)-1);
-      emi = Math.round(emi);
-    } else if(method === 4) { weeklyAmt = weeklyAmount; if(!weeklyAmt || weeklyAmt <=0) return false; }
-    const newLoanNumber = getNextLoanNumber();
-    const newLoan = { 
-      id: Date.now(), 
-      customerId: custId, 
-      principalAmount: amount, 
-      interestRate: rate, 
-      method, 
-      status: 'active', 
-      startDate, 
-      emiAmount: emi, 
-      tenure: tenure || null, 
-      weeklyAmount: weeklyAmt,
-      loanNumber: newLoanNumber
-    };
-    loans.push(newLoan);
-    cashCapital -= amount;
-    saveAll();
-    return true;
-  }
-
+  // ===== Countdown Confirmation Modal =====
   function showCountdownConfirm(message, onConfirm) {
     const modalDiv = document.createElement('div');
     modalDiv.className = 'modal countdown-modal';
@@ -611,90 +667,100 @@
     modalDiv.querySelector('#cancelDeleteBtn').onclick = () => { clearInterval(interval); modalDiv.remove(); };
   }
 
-  function deleteTransaction(txnId) {
+  function createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmount) {
     if(currentRole !== "admin") return false;
-    const txn = transactions.find(t=>t.id==txnId);
-    if(!txn) return false;
-    showCountdownConfirm("Delete this transaction permanently?", () => {
-      const idx = transactions.findIndex(t=>t.id==txnId);
-      if(idx !== -1) {
-        cashCapital -= transactions[idx].amount;
-        transactions.splice(idx,1);
-        loans.forEach(l=>{
-          const totalPaidPrincipal = transactions.filter(t=>t.loanId==l.id).reduce((sum,t)=>sum+(t.principalPortion||0),0);
-          if(totalPaidPrincipal >= l.principalAmount) l.status='closed';
-          else l.status='active';
-        });
-        saveAll();
-        renderAll();
-      }
-    });
+    if(amount > cashCapital) return false;
+    let emi = null, weeklyAmt = null;
+    if(method === 3) {
+      const r = rate/100;
+      emi = amount * r * Math.pow(1+r, tenure) / (Math.pow(1+r, tenure)-1);
+      emi = Math.round(emi);
+    } else if(method === 4) { weeklyAmt = weeklyAmount; if(!weeklyAmt || weeklyAmt <=0) return false; }
+    const newLoanNumber = getNextLoanNumber();
+    const newLoan = { id: Date.now(), customerId: custId, principalAmount: amount, interestRate: rate, method, status: 'active', startDate, emiAmount: emi, tenure: tenure || null, weeklyAmount: weeklyAmt, loanNumber: newLoanNumber };
+    loans.push(newLoan);
+    cashCapital -= amount;
+    saveAll();
     return true;
   }
-  
-  function editTransaction(txnId, newAmount, newDate, newRemark) {
-    if(currentRole !== "admin") return false;
-    const txn = transactions.find(t=>t.id==txnId);
-    if(!txn) return false;
-    cashCapital -= txn.amount;
-    const idx = transactions.findIndex(t=>t.id==txnId);
-    transactions.splice(idx,1);
-    const result = addTransaction(txn.loanId, newDate, newAmount, newRemark);
-    if(!result.success) { cashCapital += txn.amount; transactions.push(txn); saveAll(); return false; }
-    saveAll(); return true;
-  }
-  
-  function showCloseLoanModal(loanId) {
-    const loan = getLoan(loanId);
-    if(!loan) return;
-    const principalRemaining = getPrincipalRemaining(loan);
-    if(principalRemaining <= 0.01) { loan.status = 'closed'; saveAll(); renderAll(); alert("Loan already fully closed (principal zero)."); return; }
-    const modalDiv = document.createElement('div');
-    modalDiv.className = 'modal';
-    const todayStr = new Date().toISOString().slice(0,10);
-    modalDiv.innerHTML = `<div class="modal-content"><h3>Close Loan #${loan.loanNumber}</h3>
-      <p><strong>📌 Outstanding Principal:</strong> ₹${principalRemaining.toFixed(2)}</p>
-      <p><strong>📅 Select Closing Date:</strong></p>
-      <input type="date" id="closeDateModal" value="${todayStr}">
-      <div id="accruedPreview"></div>
-      <div class="flex-btns"><button id="closeConfirmBtn">Confirm & Close</button><button id="closeCancelBtn">Cancel</button></div>
-    </div>`;
-    document.body.appendChild(modalDiv);
-    const dateInput = modalDiv.querySelector('#closeDateModal');
-    const previewDiv = modalDiv.querySelector('#accruedPreview');
-    
-    function updatePreview() {
-      const closeDate = dateInput.value;
-      if(!closeDate) return;
-      const interestAccrued = getAccruedInterestUpToDate(loan, closeDate, principalRemaining);
-      const totalDue = principalRemaining + interestAccrued;
-      previewDiv.innerHTML = `<p><strong>📈 Accrued Interest (till ${closeDate}):</strong> ₹${interestAccrued.toFixed(2)}</p>
-      <p><strong>💰 TOTAL TO CLOSE:</strong> ₹${totalDue.toFixed(2)}</p>`;
+
+  // --- Bulk Payment Logic ---
+  function calculateBulkDistribution(custId, totalAmount, dateStr) {
+    const activeLoans = loans.filter(l => l.customerId == custId && l.status === 'active');
+    if(activeLoans.length === 0) return [];
+
+    let remaining = totalAmount;
+    let distribution = [];
+
+    activeLoans.forEach(loan => {
+      let expected = 0;
+      if(loan.method === 3) expected = loan.emiAmount;
+      else if(loan.method === 4) expected = loan.weeklyAmount;
+      else expected = getAccruedInterestUpToDate(loan, dateStr);
+
+      if(!expected || expected <= 0) expected = getPrincipalRemaining(loan);
+
+      let applyAmt = 0;
+      if(remaining >= expected) { applyAmt = expected; }
+      else if(remaining > 0) { applyAmt = remaining; }
+      
+      remaining -= applyAmt;
+
+      if(applyAmt > 0) {
+        distribution.push({ loanId: loan.id, loanNumber: loan.loanNumber, amount: applyAmt });
+      }
+    });
+
+    if(remaining > 0 && distribution.length > 0) {
+        distribution[0].amount += remaining;
+    } else if (remaining > 0 && distribution.length === 0 && activeLoans.length > 0) {
+        distribution.push({ loanId: activeLoans[0].id, loanNumber: activeLoans[0].loanNumber, amount: remaining });
     }
-    dateInput.addEventListener('change', updatePreview);
-    updatePreview();
-    
-    modalDiv.querySelector('#closeConfirmBtn').onclick = ()=>{
-      const closeDate = dateInput.value;
-      if(!closeDate) return alert("Select date");
-      const interestAccrued = getAccruedInterestUpToDate(loan, closeDate, principalRemaining);
-      const totalDue = principalRemaining + interestAccrued;
-      if(totalDue <= 0) { alert("Nothing to close"); modalDiv.remove(); return; }
-      if(closeLoanWithAccrued(loanId, closeDate, totalDue, principalRemaining, interestAccrued)) {
-        renderAll();
-        alert(`Loan #${loan.loanNumber} closed with ₹${totalDue.toFixed(2)} (Principal ₹${principalRemaining.toFixed(2)} + Interest ₹${interestAccrued.toFixed(2)})`);
-        modalDiv.remove();
-      } else alert("Closing failed");
-    };
-    modalDiv.querySelector('#closeCancelBtn').onclick = ()=> modalDiv.remove();
+    return distribution;
   }
 
+  function updateBulkPreview() {
+    const custId = document.getElementById('bulkCustId').value;
+    const totalAmt = parseFloat(document.getElementById('bulkTotalAmount').value);
+    const date = document.getElementById('bulkDate').value;
+    const previewDiv = document.getElementById('bulkPreview');
+    const btn = document.getElementById('bulkSubmitBtn');
+
+    if(!custId || isNaN(totalAmt) || totalAmt <= 0) {
+      previewDiv.innerHTML = '';
+      btn.style.display = 'none';
+      return;
+    }
+
+    const dist = calculateBulkDistribution(custId, totalAmt, date);
+
+    if(dist.length === 0) {
+       previewDiv.innerHTML = '<div style="color:red;">No active loans found for this customer.</div>';
+       btn.style.display = 'none';
+       return;
+    }
+
+    let html = '<strong>📊 Payment Distribution Preview:</strong><br>';
+    dist.forEach(d => {
+       html += `<div class="list-item" style="padding:10px; margin-top:8px; background:#fff; border-left:4px solid #2a9d8f;">✅ Loan #${d.loanNumber} : <strong>₹${d.amount.toFixed(2)}</strong></div>`;
+    });
+    previewDiv.innerHTML = html;
+    btn.style.display = 'block';
+  }
+
+  // --- Rendering Functions ---
   function renderCustomers() {
     const container = document.getElementById('customerList');
     if(!container) return;
     container.innerHTML = customers.length ? customers.map(c=>`<div class="list-item"><div class="flex-row"><strong>${escapeHtml(c.name)}</strong><span class="badge">${c.phone||''}</span></div><div class="text-muted">${escapeHtml(c.address||'')}</div></div>`).join('') : '<div class="text-muted">No customers</div>';
+    
+    const dropdownHtml = '<option value="">-- select customer --</option>'+customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    
     const loanCust = document.getElementById('loanCustomerId');
-    if(loanCust && currentRole==="admin") loanCust.innerHTML = '<option value="">-- select --</option>'+customers.map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    if(loanCust && currentRole==="admin") loanCust.innerHTML = dropdownHtml;
+
+    const bulkCust = document.getElementById('bulkCustId');
+    if(bulkCust && currentRole==="admin") bulkCust.innerHTML = dropdownHtml;
   }
   
   function renderLoans() {
@@ -716,18 +782,14 @@
       else if(loan.method===3) methodDesc=`Monthly EMI ₹${loan.emiAmount}`;
       else methodDesc=`Weekly EMI ₹${loan.weeklyAmount} × ${loan.tenure} weeks`;
       const closedBadge = loan.status === 'closed' ? ' | ✅ CLOSED' : '';
-      // Separate lines: principal balance then expected remaining (if applicable)
-      let expectedLine = '';
-      if (loan.method === 3 || loan.method === 4) {
-        expectedLine = `<div>📊 Expected Remaining: ₹${totalExpectedRemaining.toFixed(2)}</div>`;
-      }
+      let expectedLine = (loan.method === 3 || loan.method === 4) ? `<div>📊 Expected Remaining: ₹${totalExpectedRemaining.toFixed(2)}</div>` : '';
       return `<div class="list-item" data-loan-id="${loan.id}">
         <div class="flex-row"><strong>${cust?cust.name:'Unknown'} (Loan #${loan.loanNumber})</strong><span class="badge">Amount: ₹${loan.principalAmount}</span></div>
         <div>Rate: ${loan.interestRate}% | Start: ${formatDateDMY(loan.startDate)} | ${methodDesc}</div>
         <div>📌 Principal Balance: ₹${principalBal.toFixed(2)}</div>
         ${expectedLine}
         <div>Status: ${loan.status==='closed'?'Closed':'Active'}${closedBadge}</div>
-        ${loan.status !== 'closed' ? `<div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan (Full Settlement)</button></div>` : ''}
+        ${loan.status !== 'closed' ? `<div><button class="small-btn close-loan" data-id="${loan.id}">🔒 Close Loan</button></div>` : ''}
       </div>`;
     }).join('');
     document.querySelectorAll('.close-loan').forEach(btn=>{ btn.addEventListener('click', (e)=>{ const id = parseInt(btn.getAttribute('data-id')); showCloseLoanModal(id); }); });
@@ -747,13 +809,39 @@
     container.innerHTML = transactions.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(txn=>{
       const loan = getLoan(txn.loanId);
       const cust = loan ? getCustomer(loan.customerId) : null;
-      let actionBtns = '';
-      if(currentRole==="admin") actionBtns = `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button><button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>`;
+      let actionBtns = currentRole==="admin" ? `<div><button class="small-btn edit-txn" data-id="${txn.id}">Edit</button><button class="small-btn delete-txn" data-id="${txn.id}">Delete</button></div>` : '';
       return `<div class="list-item"><div class="flex-row"><strong>${cust?cust.name:'Unknown'} (Loan #${loan?.loanNumber || '?'})</strong><span class="badge">${formatDateDMY(txn.date)}</span></div><div>Amount: ₹${txn.amount} | Interest: ₹${txn.interestPortion} | Principal: ₹${txn.principalPortion}</div><div>Remark: ${escapeHtml(txn.remark||'')}</div>${actionBtns}</div>`;
     }).join('');
+    
+    // Attach edit/delete events
     if(currentRole==="admin") {
-      document.querySelectorAll('.edit-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); const txn = transactions.find(t=>t.id===id); if(txn){ const newAmt = prompt("New amount", txn.amount); if(newAmt!==null){ const newDate = prompt("New date (YYYY-MM-DD)", txn.date); const newRemark = prompt("Remark", txn.remark||''); if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) renderAll(); else alert("Edit failed"); } } }); });
-      document.querySelectorAll('.delete-txn').forEach(btn=>{ btn.addEventListener('click',()=>{ const id = parseInt(btn.getAttribute('data-id')); deleteTransaction(id); renderAll(); }); });
+      document.querySelectorAll('.edit-txn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = parseInt(btn.getAttribute('data-id'));
+          const txn = transactions.find(t => t.id === id);
+          if(txn) {
+            const newAmt = prompt("New amount", txn.amount);
+            if(newAmt !== null) {
+              const newDate = prompt("New date (YYYY-MM-DD)", txn.date);
+              if(newDate !== null) {
+                const newRemark = prompt("New remark", txn.remark || '');
+                if(newRemark !== null) {
+                  if(editTransaction(id, parseFloat(newAmt), newDate, newRemark)) {
+                    renderAll();
+                    alert("Transaction updated!");
+                  } else alert("Edit failed");
+                }
+              }
+            }
+          }
+        });
+      });
+      document.querySelectorAll('.delete-txn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = parseInt(btn.getAttribute('data-id'));
+          deleteTransaction(id);
+        });
+      });
     }
   }
   
@@ -764,17 +852,15 @@
     const invested = totalDisbursed();
     const totalProfitAccurate = computeTotalProfitAccurate();
     const profitEarnedRealised = totalInterest();
-    const profitPercentRealised = invested > 0 ? (profitEarnedRealised / invested * 100).toFixed(2) : '0.00';
     const profitPercentAccurate = invested > 0 ? (totalProfitAccurate / invested * 100).toFixed(2) : '0.00';
-    const dashboardHtml = `
+    document.getElementById('dashboardOutput').innerHTML = `
       <p><strong>💰 Cash on Hand:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
       <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${outstandingPrincipal.toFixed(2)}</span></p>
       <p><strong>🏦 Total Invested (Disbursed):</strong> <span>₹${invested.toFixed(2)}</span></p>
       <p><strong>📈 Approx Profit (incl. accrued):</strong> <span class="profit-green">₹${totalProfitAccurate.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercentAccurate}%)</span></span></p>
-      <p><strong>✅ Total Profit Earned (realised):</strong> <span class="profit-green">₹${profitEarnedRealised.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercentRealised}%)</span></span></p>
-      <p><strong>👥 Partner's Share (50% of realised):</strong> <span>₹${(profitEarnedRealised/2).toFixed(2)}</span></p>
+      <p><strong>✅ Total Profit Earned:</strong> <span class="profit-green">₹${profitEarnedRealised.toFixed(2)}</span></p>
+      <p><strong>👥 Partner's Share (50%):</strong> <span>₹${(profitEarnedRealised/2).toFixed(2)}</span></p>
     `;
-    document.getElementById('dashboardOutput').innerHTML = dashboardHtml;
     
     const alerts = [];
     loans.forEach(loan => {
@@ -795,15 +881,14 @@
   function renderCapitalTab() {
     const initCap = cashCapital - totalInterest();
     const totalInv = totalInvested();
-    const capitalHtml = `
+    document.getElementById('capitalOutput').innerHTML = `
       <p><strong>💰 Current Cash:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
-      <p><strong>📈 Total Interest Earned (realised):</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
+      <p><strong>📈 Total Interest Earned:</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
       <p><strong>🏦 Initial Capital (Estimate):</strong> <span>₹${initCap>=0?initCap.toFixed(2):"0.00"}</span></p>
-      <p><strong>📦 Total Disbursed (Principal):</strong> <span>₹${totalDisbursed().toFixed(2)}</span></p>
+      <p><strong>📦 Total Disbursed:</strong> <span>₹${totalDisbursed().toFixed(2)}</span></p>
       <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${totalOutstandingPrincipal().toFixed(2)}</span></p>
       <p><strong>✅ Principal Recovered:</strong> <span>₹${totalPrincipalRecovered().toFixed(2)}</span></p>
     `;
-    document.getElementById('capitalOutput').innerHTML = capitalHtml;
     document.getElementById('totalInvestment').innerHTML = `₹${totalInv.toFixed(2)}`;
     const historyDiv = document.getElementById('capitalHistoryList');
     if(historyDiv) {
@@ -819,17 +904,50 @@
       document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(el=>el.disabled=false);
     }
   }
+  
   function escapeHtml(str){ if(!str) return ''; return str.replace(/[&<>]/g, m=> m==='&'?'&amp;': m==='<'?'&lt;':'&gt;'); }
 
   function initEvents() {
     document.getElementById('transactionManagerBtn')?.addEventListener('click', () => { window.location.href = `transations.html?role=${currentRole}`; });
     document.getElementById('moreDetailsBtn')?.addEventListener('click', () => { window.location.href = 'details.html'; });
-    document.getElementById('addCustomerBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const name = document.getElementById('custName').value.trim(); if(!name) return alert("Name required"); customers.push({ id: Date.now(), name, phone: document.getElementById('custPhone').value.trim(), address: document.getElementById('custAddress').value.trim().slice(0,150) }); saveAll(); renderAll(); document.getElementById('custName').value=''; document.getElementById('custPhone').value=''; document.getElementById('custAddress').value=''; });
-    document.getElementById('createLoanBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const custId = parseInt(document.getElementById('loanCustomerId').value); if(!custId) return alert("Select customer"); const startDate = document.getElementById('loanStartDate').value; if(!startDate) return alert("Start date"); const amount = parseFloat(document.getElementById('loanAmount').value); const rate = parseFloat(document.getElementById('loanInterest').value); const method = parseInt(document.getElementById('loanMethod').value); if(isNaN(amount)||amount<=0) return alert("Valid amount"); if(method!==4 && (isNaN(rate)||rate<0)) return alert("Rate required"); if(amount > cashCapital) return alert(`Insufficient cash. Available: ₹${cashCapital}`); let tenure=null, weeklyAmt=null; if(method===3||method===4){ tenure=parseInt(document.getElementById('loanTenure').value); if(!tenure) return alert(`Enter ${method===3?'months':'weeks'}`); if(method===4){ weeklyAmt=parseFloat(document.getElementById('weeklyInstallment').value); if(!weeklyAmt) return alert("Weekly amount"); } } if(createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmt)) renderAll(); else alert("Creation failed"); });
-    document.getElementById('addTransactionBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const loanId = parseInt(document.getElementById('txnLoanId').value); if(!loanId) return alert("Select loan"); const date = document.getElementById('txnDate').value || new Date().toISOString().slice(0,10); const amount = parseFloat(document.getElementById('txnAmount').value); if(isNaN(amount)||amount<=0) return alert("Valid amount"); const res = addTransaction(loanId, date, amount, document.getElementById('txnRemark').value); if(res.success) renderAll(); else alert(res.msg); });
-    document.getElementById('addCapitalBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const addAmt = parseFloat(document.getElementById('addCapitalInput').value); if(isNaN(addAmt) || addAmt<=0) return alert("Valid amount"); cashCapital += addAmt; addCapitalHistory('add', addAmt, new Date().toISOString().slice(0,10)); saveAll(); renderAll(); document.getElementById('addCapitalInput').value=''; alert(`Added ₹${addAmt}`); });
-    document.getElementById('withdrawCapitalSettingsBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const amt = parseFloat(document.getElementById('withdrawAmountSettings').value); if(isNaN(amt)||amt<=0) return alert("Valid amount"); if(amt > cashCapital) return alert("Insufficient capital"); cashCapital -= amt; addCapitalHistory('withdraw', amt, new Date().toISOString().slice(0,10)); saveAll(); renderAll(); document.getElementById('withdrawAmountSettings').value=''; alert(`Withdrew ₹${amt}`); });
+    
+    document.getElementById('addCustomerBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const name = document.getElementById('custName').value.trim(); if(!name) return alert("Name required"); customers.push({ id: Date.now(), name, phone: document.getElementById('custPhone').value.trim(), address: document.getElementById('custAddress').value.trim().slice(0,150) }); saveAll(); document.getElementById('custName').value=''; document.getElementById('custPhone').value=''; document.getElementById('custAddress').value=''; });
+    document.getElementById('createLoanBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const custId = parseInt(document.getElementById('loanCustomerId').value); if(!custId) return alert("Select customer"); const startDate = document.getElementById('loanStartDate').value; if(!startDate) return alert("Start date"); const amount = parseFloat(document.getElementById('loanAmount').value); const rate = parseFloat(document.getElementById('loanInterest').value); const method = parseInt(document.getElementById('loanMethod').value); if(isNaN(amount)||amount<=0) return alert("Valid amount"); if(method!==4 && (isNaN(rate)||rate<0)) return alert("Rate required"); if(amount > cashCapital) return alert(`Insufficient cash. Available: ₹${cashCapital}`); let tenure=null, weeklyAmt=null; if(method===3||method===4){ tenure=parseInt(document.getElementById('loanTenure').value); if(!tenure) return alert(`Enter ${method===3?'months':'weeks'}`); if(method===4){ weeklyAmt=parseFloat(document.getElementById('weeklyInstallment').value); if(!weeklyAmt) return alert("Weekly amount"); } } if(createLoan(custId, amount, rate, method, startDate, tenure, weeklyAmt)) { document.getElementById('loanAmount').value=''; } else alert("Creation failed"); });
+    document.getElementById('addTransactionBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const loanId = parseInt(document.getElementById('txnLoanId').value); if(!loanId) return alert("Select loan"); const date = document.getElementById('txnDate').value || new Date().toISOString().slice(0,10); const amount = parseFloat(document.getElementById('txnAmount').value); if(isNaN(amount)||amount<=0) return alert("Valid amount"); const res = addTransaction(loanId, date, amount, document.getElementById('txnRemark').value); if(res.success) { document.getElementById('txnAmount').value=''; document.getElementById('txnRemark').value=''; } else alert(res.msg); });
+    document.getElementById('addCapitalBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const addAmt = parseFloat(document.getElementById('addCapitalInput').value); if(isNaN(addAmt) || addAmt<=0) return alert("Valid amount"); cashCapital += addAmt; addCapitalHistory('add', addAmt, new Date().toISOString().slice(0,10)); document.getElementById('addCapitalInput').value=''; alert(`Added ₹${addAmt}`); });
+    document.getElementById('withdrawCapitalSettingsBtn')?.addEventListener('click',()=>{ if(currentRole!=="admin") return; const amt = parseFloat(document.getElementById('withdrawAmountSettings').value); if(isNaN(amt)||amt<=0) return alert("Valid amount"); if(amt > cashCapital) return alert("Insufficient capital"); cashCapital -= amt; addCapitalHistory('withdraw', amt, new Date().toISOString().slice(0,10)); document.getElementById('withdrawAmountSettings').value=''; alert(`Withdrew ₹${amt}`); });
+    
+    document.getElementById('bulkCustId')?.addEventListener('change', updateBulkPreview);
+    document.getElementById('bulkTotalAmount')?.addEventListener('input', updateBulkPreview);
+    document.getElementById('bulkDate')?.addEventListener('change', updateBulkPreview);
+    
+    document.getElementById('bulkSubmitBtn')?.addEventListener('click', () => {
+      if(currentRole !== "admin") return;
+      const custId = document.getElementById('bulkCustId').value;
+      const date = document.getElementById('bulkDate').value;
+      const totalAmt = parseFloat(document.getElementById('bulkTotalAmount').value);
+      if(!custId || !totalAmt || totalAmt <= 0) return alert("Enter valid details");
+
+      const dist = calculateBulkDistribution(custId, totalAmt, date);
+      if(dist.length === 0) return alert("No active loans or zero amount to distribute.");
+
+      let successCount = 0;
+      dist.forEach(d => {
+          const res = addTransaction(d.loanId, date, d.amount, "Bulk Quick-Pay");
+          if(res.success) successCount++;
+      });
+
+      if(successCount > 0) {
+          alert(`Successfully added ${successCount} payments!`);
+          document.getElementById('bulkTotalAmount').value = '';
+          document.getElementById('bulkPreview').innerHTML = '';
+          document.getElementById('bulkSubmitBtn').style.display = 'none';
+          renderAll();
+      }
+    });
+
     document.getElementById('loanMethod')?.addEventListener('change',(e)=>{ const method = parseInt(e.target.value); const emiDiv = document.getElementById('emiFields'); const weeklyField = document.getElementById('weeklyAmountField'); const tenureLabel = document.getElementById('tenureLabel'); if(method===3){ emiDiv.style.display='block'; weeklyField.style.display='none'; tenureLabel.innerText='Tenure (months)'; } else if(method===4){ emiDiv.style.display='block'; weeklyField.style.display='block'; tenureLabel.innerText='Number of weeks'; } else emiDiv.style.display='none'; });
+    
     document.querySelectorAll('.tab').forEach(tab=>{ tab.addEventListener('click',()=>{ document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active')); document.getElementById(tab.getAttribute('data-tab')).classList.add('active'); }); });
   }
 
@@ -850,16 +968,18 @@
     }
     else document.getElementById('pwdError').innerText='Wrong password';
   }
+  
   async function proceed() {
     document.getElementById('passwordModal').style.display='none';
     document.getElementById('mainApp').style.display='block';
-    await loadData();
+    loadData(); 
     initEvents();
-    renderAll();
     document.getElementById('emiFields').style.display='none';
     document.getElementById('loanStartDate').value = new Date().toISOString().slice(0,10);
     document.getElementById('txnDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('bulkDate').value = new Date().toISOString().slice(0,10);
   }
+  
   document.getElementById('unlockBtn')?.addEventListener('click',unlockApp);
   document.getElementById('passwordInput')?.addEventListener('keypress',e=>{if(e.key==='Enter') unlockApp();});
 </script>
