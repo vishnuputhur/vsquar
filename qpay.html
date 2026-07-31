@@ -99,24 +99,11 @@
         button.success:active {
             background: #1e7a6e;
         }
-        button.danger {
-            background: #dc3545;
-        }
-        button.danger:active {
-            background: #b02a37;
-        }
         button.secondary {
             background: #6c757d;
         }
         button.secondary:active {
             background: #545b62;
-        }
-        button.small {
-            padding: 6px 14px;
-            width: auto;
-            font-size: 0.75em;
-            margin: 2px 4px 2px 0;
-            display: inline-block;
         }
         .back-link {
             display: inline-block;
@@ -233,7 +220,7 @@
             margin-top: 12px;
             border-left: 4px solid #2a9d8f;
             font-size: 0.85em;
-            max-height: 300px;
+            max-height: 350px;
             overflow-y: auto;
         }
         .preview-box .preview-item {
@@ -244,6 +231,15 @@
         }
         .preview-box .preview-item:last-child {
             border-bottom: none;
+        }
+        .preview-box .unpaid-item {
+            color: #dc3545;
+        }
+        .preview-box .total-row {
+            font-weight: bold;
+            border-top: 2px solid #0077b6;
+            padding-top: 6px;
+            margin-top: 4px;
         }
 
         .loader {
@@ -287,18 +283,33 @@
             display: none !important;
         }
 
-        .flex-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-        }
         .text-muted {
             color: #666;
             font-size: 0.8em;
         }
         .text-center {
             text-align: center;
+        }
+        .error-msg {
+            color: #dc3545;
+            font-weight: bold;
+            padding: 8px 12px;
+            background: #fee2e2;
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+        .success-msg {
+            color: #155724;
+            background: #d4edda;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-top: 8px;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mt-12 {
+            margin-top: 12px;
         }
 
         @media (max-width: 600px) {
@@ -329,7 +340,7 @@
     <div id="mainApp">
         <div class="container">
             <h1>⚡ V² Quick Pay</h1>
-            <div class="subhead">Select customer, choose loans, enter total amount &amp; pay in one click</div>
+            <div class="subhead">Select customer, choose loans, enter total amount &amp; pay full EMIs in one click</div>
 
             <a href="index.html" class="back-link">← Back to Dashboard</a>
 
@@ -351,10 +362,14 @@
                 </div>
 
                 <label>💰 Total Amount Received (₹)</label>
-                <input type="number" id="totalAmountInput" placeholder="Enter total payment amount" step="0.01" min="0" />
+                <input type="number" id="totalAmountInput" placeholder="Enter total payment amount" step="1" min="0" />
+
+                <label>📝 Narration / Remark</label>
+                <input type="text" id="narrationInput" placeholder="Optional note for this payment" maxlength="200" />
 
                 <div id="previewContainer" style="display:none;">
                     <div class="preview-box" id="previewBox"></div>
+                    <div id="previewError" class="error-msg" style="display:none;"></div>
                 </div>
 
                 <button id="executePayBtn" class="success" style="display:none;">✅ Confirm &amp; Pay All</button>
@@ -392,14 +407,13 @@
         const DOC_ID = "appData";
 
         // ============================================================
-        // STATE - Admin only, no password needed
+        // STATE - Admin only
         // ============================================================
         let customers = [];
         let loans = [];
         let transactions = [];
         let cashCapital = 0;
         let capitalHistory = [];
-        let currentRole = "admin"; // Force admin for this page
         let unsubscribe = null;
         let selectedLoanIds = new Set();
         let isSaving = false;
@@ -660,6 +674,95 @@
         }
 
         // ============================================================
+        // DISTRIBUTION LOGIC — Full EMIs only, no decimals
+        // ============================================================
+        function calculateDistribution(totalAmount, selectedIds) {
+            const today = new Date().toISOString().slice(0, 10);
+            const loanData = [];
+
+            for (const id of selectedIds) {
+                const loan = getLoan(id);
+                if (!loan || loan.status === 'closed') continue;
+                const bal = getPrincipalRemaining(loan);
+                if (bal <= 0.01) continue;
+
+                let installment = 0;
+                // method 4: Weekly EMI, method 3: Monthly EMI
+                if (loan.method === 4) {
+                    installment = loan.weeklyAmount || 0;
+                } else if (loan.method === 3) {
+                    installment = loan.emiAmount || 0;
+                } else if (loan.method === 1) {
+                    // Interest only — pay the accrued interest
+                    const interest = getAccruedInterestUpToDate(loan, today, bal);
+                    installment = Math.round(interest); // round to whole rupees
+                    if (installment < 1) installment = 0;
+                } else if (loan.method === 2) {
+                    // Flexible — pay the outstanding balance (full settlement)
+                    installment = Math.round(bal);
+                }
+
+                // For method 1, if interest is 0, we still allow payment as principal
+                if (installment <= 0 && loan.method !== 1) continue;
+
+                const dueInfo = getNextDueForLoan(loan);
+                const dueDate = dueInfo ? new Date(dueInfo.dueDate) : new Date(9999, 0, 1);
+
+                loanData.push({
+                    loan,
+                    installment: Math.round(installment), // ensure integer
+                    dueDate,
+                    dueInfo,
+                    outstanding: bal,
+                    loanNumber: loan.loanNumber
+                });
+            }
+
+            // Sort by due date (earliest first)
+            loanData.sort((a, b) => a.dueDate - b.dueDate);
+
+            // Distribute: pay full installments in order
+            let remaining = Math.round(totalAmount);
+            const payments = [];
+            const unpaid = [];
+            let allPaid = true;
+
+            for (const data of loanData) {
+                const inst = data.installment;
+                if (inst <= 0) continue;
+                if (remaining >= inst) {
+                    payments.push({
+                        loanId: data.loan.id,
+                        amount: inst,
+                        loanNumber: data.loan.loanNumber,
+                        customerName: getCustomer(data.loan.customerId)?.name || 'Unknown'
+                    });
+                    remaining -= inst;
+                } else {
+                    unpaid.push({
+                        loanId: data.loan.id,
+                        installment: inst,
+                        loanNumber: data.loan.loanNumber,
+                        customerName: getCustomer(data.loan.customerId)?.name || 'Unknown'
+                    });
+                    allPaid = false;
+                    // Stop here — don't process further loans
+                    break;
+                }
+            }
+
+            // If there's remaining amount after paying all, add to first payment as extra principal
+            if (remaining > 0 && payments.length > 0) {
+                payments[0].amount += remaining;
+            }
+
+            // Check if any payment was made
+            const hasPayments = payments.length > 0;
+
+            return { payments, unpaid, hasPayments, allPaid, remaining };
+        }
+
+        // ============================================================
         // RENDER
         // ============================================================
         function renderCustomers() {
@@ -695,15 +798,19 @@
 
             let html = '';
             selectedLoanIds.clear();
+            const today = new Date().toISOString().slice(0, 10);
+
             custLoans.forEach(loan => {
                 const cust = getCustomer(loan.customerId);
                 const principalBal = getPrincipalRemaining(loan);
                 const dueInfo = getNextDueForLoan(loan);
                 const isClosed = loan.status === 'closed';
-                const methodText = loan.method === 1 ? 'Interest Only' :
-                    loan.method === 2 ? 'Flexible' :
-                    loan.method === 3 ? `EMI ₹${loan.emiAmount}` :
-                    `Weekly ₹${loan.weeklyAmount}`;
+
+                let methodText = '';
+                if (loan.method === 1) methodText = 'Interest Only';
+                else if (loan.method === 2) methodText = 'Flexible';
+                else if (loan.method === 3) methodText = `EMI ₹${loan.emiAmount}`;
+                else if (loan.method === 4) methodText = `Weekly ₹${loan.weeklyAmount}`;
 
                 let dueHtml = '';
                 if (dueInfo) {
@@ -717,8 +824,20 @@
                 const statusClass = isClosed ? 'closed' : 'active';
                 const statusText = isClosed ? 'Closed' : 'Active';
 
+                // For EMI loans, check if balance > 0
                 const isChecked = !isClosed && principalBal > 0.01;
                 if (isChecked) selectedLoanIds.add(loan.id);
+
+                // Determine installment display
+                let instDisplay = '';
+                if (loan.method === 4) instDisplay = `Weekly: ₹${loan.weeklyAmount}`;
+                else if (loan.method === 3) instDisplay = `EMI: ₹${loan.emiAmount}`;
+                else if (loan.method === 1) {
+                    const interest = getAccruedInterestUpToDate(loan, today, principalBal);
+                    instDisplay = `Interest: ₹${Math.round(interest)}`;
+                } else if (loan.method === 2) {
+                    instDisplay = `Balance: ₹${Math.round(principalBal)}`;
+                }
 
                 html += `
                     <div class="loan-card ${isChecked ? 'selected' : ''}" data-loan-id="${loan.id}">
@@ -726,7 +845,7 @@
                         <div class="loan-info">
                             <div class="loan-title">#${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}</div>
                             <div class="loan-detail">${methodText} · ₹${loan.principalAmount} · ${loan.interestRate}% · Start: ${formatDateDMY(loan.startDate)}</div>
-                            <div class="loan-detail">Balance: ₹${principalBal.toFixed(2)} ${dueHtml}</div>
+                            <div class="loan-detail">Balance: ₹${principalBal.toFixed(2)} · ${instDisplay} ${dueHtml}</div>
                         </div>
                         <span class="loan-status-badge ${statusClass}">${statusText}</span>
                         <span class="loan-amount-badge">₹${principalBal.toFixed(2)}</span>
@@ -750,9 +869,12 @@
                 });
             });
 
+            // Reset inputs
             document.getElementById('totalAmountInput').value = '';
+            document.getElementById('narrationInput').value = '';
             document.getElementById('previewContainer').style.display = 'none';
             document.getElementById('executePayBtn').style.display = 'none';
+            document.getElementById('previewError').style.display = 'none';
         }
 
         function updateSummary() {
@@ -775,71 +897,69 @@
             const previewContainer = document.getElementById('previewContainer');
             const previewBox = document.getElementById('previewBox');
             const execBtn = document.getElementById('executePayBtn');
+            const errorDiv = document.getElementById('previewError');
+
+            // Reset
+            previewContainer.style.display = 'none';
+            execBtn.style.display = 'none';
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
 
             if (isNaN(totalAmt) || totalAmt <= 0 || selectedLoanIds.size === 0) {
-                previewContainer.style.display = 'none';
-                execBtn.style.display = 'none';
                 return;
             }
 
-            const dist = buildDistribution(totalAmt);
-            if (dist.length === 0) {
-                previewContainer.style.display = 'none';
-                execBtn.style.display = 'none';
+            const result = calculateDistribution(totalAmt, selectedLoanIds);
+
+            if (!result.hasPayments) {
+                // No payment could be made — show error
+                errorDiv.textContent = '⚠️ Total amount is less than the minimum EMI. Please unselect some loans or increase the amount.';
+                errorDiv.style.display = 'block';
+                previewContainer.style.display = 'block';
+                previewBox.innerHTML = '<div class="text-muted">No loans can be paid with this amount.</div>';
                 return;
             }
 
-            let html = '<strong>📊 Distribution Preview</strong>';
+            // Build preview
+            let html = '<strong>📊 Payment Distribution Preview</strong>';
             let totalDist = 0;
-            dist.forEach(d => {
-                totalDist += d.amount;
-                const loan = getLoan(d.loanId);
-                const cust = loan ? getCustomer(loan.customerId) : null;
-                html +=
-                    `<div class="preview-item"><span>#${loan?.loanNumber || '?'} - ${cust?.name || 'Unknown'}</span><span>₹${d.amount.toFixed(2)}</span></div>`;
-            });
-            html +=
-                `<div class="preview-item" style="font-weight:bold;border-top:2px solid #0077b6;padding-top:6px;margin-top:4px;"><span>Total</span><span>₹${totalDist.toFixed(2)}</span></div>`;
-            if (Math.abs(totalDist - totalAmt) > 0.01) {
-                html +=
-                    `<div style="color:#b45309;font-size:0.8em;margin-top:4px;">⚠️ Remaining: ₹${(totalAmt - totalDist).toFixed(2)} will be added to first loan</div>`;
+
+            if (result.payments.length > 0) {
+                html += '<div style="margin-top:6px;"><em>✅ Will be paid:</em></div>';
+                result.payments.forEach(p => {
+                    totalDist += p.amount;
+                    html +=
+                        `<div class="preview-item"><span>#${p.loanNumber} - ${p.customerName}</span><span>₹${p.amount.toFixed(2)}</span></div>`;
+                });
             }
+
+            if (result.unpaid.length > 0) {
+                html += '<div style="margin-top:8px;"><em style="color:#dc3545;">❌ Not paid (insufficient amount):</em></div>';
+                result.unpaid.forEach(u => {
+                    html +=
+                        `<div class="preview-item unpaid-item"><span>#${u.loanNumber} - ${u.customerName} (needs ₹${u.installment})</span><span style="color:#dc3545;">⚠️ Skip</span></div>`;
+                });
+                html +=
+                    `<div style="color:#b45309;font-size:0.8em;margin-top:4px;">💡 Please unselect the skipped loans or add more amount.</div>`;
+            }
+
+            html +=
+                `<div class="preview-item total-row"><span>Total to be paid</span><span>₹${totalDist.toFixed(2)}</span></div>`;
+
+            if (result.remaining > 0 && result.payments.length > 0) {
+                html +=
+                    `<div style="color:#0077b6;font-size:0.8em;margin-top:4px;">✨ Extra ₹${result.remaining.toFixed(2)} added as additional principal to the first loan.</div>`;
+            }
+
             previewBox.innerHTML = html;
             previewContainer.style.display = 'block';
-            execBtn.style.display = 'block';
-        }
 
-        function buildDistribution(totalAmount) {
-            const selected = [];
-            selectedLoanIds.forEach(id => {
-                const loan = getLoan(id);
-                if (loan && loan.status !== 'closed') {
-                    const bal = getPrincipalRemaining(loan);
-                    if (bal > 0.01) selected.push({ loanId: loan.id, balance: bal });
-                }
-            });
-            if (selected.length === 0) return [];
-
-            const totalBal = selected.reduce((s, item) => s + item.balance, 0);
-            const result = [];
-            let remaining = totalAmount;
-
-            for (const item of selected) {
-                let share = (item.balance / totalBal) * totalAmount;
-                share = Math.min(share, item.balance);
-                share = Math.round(share * 100) / 100;
-                if (share > 0.01) {
-                    result.push({ loanId: item.loanId, amount: share });
-                    remaining -= share;
-                }
+            // Show confirm button only if there are payments and no errors
+            if (result.hasPayments && result.payments.length > 0) {
+                execBtn.style.display = 'block';
+            } else {
+                execBtn.style.display = 'none';
             }
-
-            if (remaining > 0.01 && result.length > 0) {
-                result[0].amount += remaining;
-                result[0].amount = Math.round(result[0].amount * 100) / 100;
-            }
-
-            return result.filter(d => d.amount > 0.01);
         }
 
         function renderAll() {
@@ -851,12 +971,12 @@
                     '<div class="loader">Select a customer to view loans</div>';
                 document.getElementById('paymentSection').style.display = 'none';
             }
-            // All controls are enabled since we are admin
+            // All controls enabled (admin)
             document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => el.disabled = false);
         }
 
         // ============================================================
-        // REPORT GENERATOR (Excel) - Full Details
+        // REPORT GENERATOR (Excel)
         // ============================================================
         function generateExcelReport() {
             if (loans.length === 0) {
@@ -866,7 +986,7 @@
 
             const workbook = XLSX.utils.book_new();
 
-            // Summary sheet
+            // Summary
             const summaryData = [
                 ['V² Loan Manager - Full Report'],
                 ['Generated:', new Date().toLocaleString()],
@@ -912,7 +1032,7 @@
             const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
             XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-            // Each loan gets a detailed sheet
+            // Each loan sheet
             loans.forEach(loan => {
                 const cust = getCustomer(loan.customerId);
                 const sheetName = `#${loan.loanNumber} ${cust ? cust.name.slice(0,12) : 'Unknown'}`.replace(
@@ -961,7 +1081,7 @@
                     });
                 }
 
-                // Payment schedule if EMI or Weekly
+                // Schedule
                 if (loan.method === 3 || loan.method === 4) {
                     rows.push([]);
                     rows.push(['Payment Schedule']);
@@ -1004,7 +1124,6 @@
                 XLSX.utils.book_append_sheet(workbook, sheet, sheetName.slice(0, 31));
             });
 
-            // Write file
             const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
             const blob = new Blob([wbout], { type: 'application/octet-stream' });
             const link = document.createElement('a');
@@ -1034,29 +1153,45 @@
 
             document.getElementById('executePayBtn')?.addEventListener('click', function() {
                 const totalAmt = parseFloat(document.getElementById('totalAmountInput').value);
+                const narration = document.getElementById('narrationInput').value.trim();
+
                 if (isNaN(totalAmt) || totalAmt <= 0) { alert("Enter a valid total amount"); return; }
                 if (selectedLoanIds.size === 0) { alert("Select at least one loan"); return; }
 
-                const dist = buildDistribution(totalAmt);
-                if (dist.length === 0) { alert("No valid distribution"); return; }
+                const result = calculateDistribution(totalAmt, selectedLoanIds);
+                if (!result.hasPayments || result.payments.length === 0) {
+                    alert("Total amount is not enough for any full EMI. Please unselect some loans or increase the amount.");
+                    return;
+                }
+
+                if (result.unpaid.length > 0) {
+                    const confirmMsg =
+                        `⚠️ ${result.unpaid.length} loan(s) will NOT be paid due to insufficient amount.\n\n✅ Will pay: ${result.payments.length} loan(s) for ₹${result.payments.reduce((s,p) => s + p.amount, 0).toFixed(2)}\n❌ Skipped: ${result.unpaid.length} loan(s)\n\nContinue?`;
+                    if (!confirm(confirmMsg)) return;
+                } else {
+                    const confirmMsg =
+                        `Pay ₹${result.payments.reduce((s,p) => s + p.amount, 0).toFixed(2)} across ${result.payments.length} loan(s)?`;
+                    if (!confirm(confirmMsg)) return;
+                }
 
                 const date = new Date().toISOString().slice(0, 10);
-                const confirmMsg = `Pay ₹${totalAmt.toFixed(2)} across ${dist.length} loan(s)?`;
-                if (!confirm(confirmMsg)) return;
-
                 let successCount = 0;
                 let errors = [];
-                dist.forEach(d => {
-                    const res = addTransaction(d.loanId, date, d.amount, "Quick Pay Bulk");
+
+                result.payments.forEach(p => {
+                    const remark = `Quick Pay Bulk${narration ? ' - ' + narration : ''}`;
+                    const res = addTransaction(p.loanId, date, p.amount, remark);
                     if (res.success) successCount++;
-                    else errors.push(res.msg);
+                    else errors.push(`Loan #${p.loanNumber}: ${res.msg}`);
                 });
 
                 if (successCount > 0) {
                     alert(`✅ ${successCount} payments added successfully!${errors.length ? '\nErrors: '+errors.join('; ') : ''}`);
                     document.getElementById('totalAmountInput').value = '';
+                    document.getElementById('narrationInput').value = '';
                     document.getElementById('previewContainer').style.display = 'none';
                     document.getElementById('executePayBtn').style.display = 'none';
+                    document.getElementById('previewError').style.display = 'none';
                     const custId = document.getElementById('custSelect').value;
                     if (custId) renderLoansForCustomer(custId);
                     renderAll();
@@ -1074,9 +1209,6 @@
         // START - No password, direct admin load
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Force admin role
-            currentRole = "admin";
-            // Load data directly
             loadData();
             initEvents();
         });
