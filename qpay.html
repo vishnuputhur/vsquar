@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V² · Quick Pay</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => { console.log('V² QPay: Registered'); })
+                    .catch(err => console.log('V² QPay: Error', err));
+            });
+        }
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js">
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js">
+    </script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js">
+    </script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f4f8;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            max-width: 100%;
+            width: 92%;
+            margin: 16px auto;
+            background: #fff;
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        h1 {
+            text-align: center;
+            color: #0077b6;
+            font-size: 1.6em;
+            margin: 0 0 6px 0;
+        }
+        .subhead {
+            text-align: center;
+            color: #555;
+            font-size: 0.8em;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-top: 12px;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+        select,
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            margin-top: 4px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            font-size: 0.9em;
+            background: #fafafa;
+        }
+        select:focus,
+        input:focus {
+            border-color: #0077b6;
+            outline: none;
+            background: #fff;
+        }
+        button {
+            margin-top: 14px;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: #00b4d8;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            font-size: 0.95em;
+            transition: background 0.2s;
+        }
+        button:active {
+            background: #0077b6;
+        }
+        button.success {
+            background: #2a9d8f;
+        }
+        button.success:active {
+            background: #1e7a6e;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        button.danger:active {
+            background: #b02a37;
+        }
+        button.secondary {
+            background: #6c757d;
+        }
+        button.secondary:active {
+            background: #545b62;
+        }
+        button.small {
+            padding: 6px 14px;
+            width: auto;
+            font-size: 0.75em;
+            margin: 2px 4px 2px 0;
+            display: inline-block;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 10px;
+            color: #0077b6;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        .loan-card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-top: 10px;
+            border: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            transition: background 0.15s;
+        }
+        .loan-card.selected {
+            background: #e6f7ee;
+            border-color: #2a9d8f;
+        }
+        .loan-card input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            margin: 0;
+            accent-color: #2a9d8f;
+            cursor: pointer;
+        }
+        .loan-info {
+            flex: 1;
+            min-width: 160px;
+        }
+        .loan-info .loan-title {
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        .loan-info .loan-detail {
+            font-size: 0.75em;
+            color: #555;
+            margin-top: 2px;
+        }
+        .loan-info .loan-due {
+            font-size: 0.75em;
+            color: #b45309;
+            background: #fffbeb;
+            padding: 2px 10px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-top: 3px;
+        }
+        .loan-info .loan-due.overdue {
+            color: #dc3545;
+            background: #fee2e2;
+        }
+        .loan-amount-badge {
+            font-weight: bold;
+            font-size: 0.85em;
+            color: #0077b6;
+            background: #e0f7fa;
+            padding: 4px 12px;
+            border-radius: 20px;
+            white-space: nowrap;
+        }
+        .loan-status-badge {
+            font-size: 0.7em;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: #e9ecef;
+            color: #555;
+            white-space: nowrap;
+        }
+        .loan-status-badge.closed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .loan-status-badge.active {
+            background: #cce5ff;
+            color: #004085;
+        }
+
+        .summary-bar {
+            background: #e0f7fa;
+            padding: 12px 16px;
+            border-radius: 12px;
+            margin: 16px 0 10px 0;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+        .summary-bar .total-label {
+            font-weight: bold;
+        }
+        .summary-bar .total-amount {
+            font-weight: bold;
+            color: #0077b6;
+            font-size: 1.1em;
+        }
+
+        .preview-box {
+            background: #f1f9fe;
+            border-radius: 12px;
+            padding: 12px 16px;
+            margin-top: 12px;
+            border-left: 4px solid #2a9d8f;
+            font-size: 0.85em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .preview-box .preview-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .preview-box .preview-item:last-child {
+            border-bottom: none;
+        }
+
+        .loader {
+            text-align: center;
+            padding: 30px 0;
+            color: #0077b6;
+            font-size: 0.9em;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            background: #0077b6;
+            color: #fff;
+            padding: 10px;
+            font-size: 0.7em;
+            border-radius: 8px;
+        }
+        .sync-status {
+            font-size: 0.65em;
+            text-align: center;
+            margin-top: 6px;
+            color: #e0f7fa;
+        }
+
+        .password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .password-card {
+            background: white;
+            border-radius: 24px;
+            padding: 24px;
+            width: 80%;
+            max-width: 300px;
+            text-align: center;
+        }
+        .password-card input {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .error-msg {
+            color: red;
+            font-size: 0.8em;
+            min-height: 20px;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.92);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            font-size: 1.1em;
+            color: #0077b6;
+        }
+        .hidden {
+            display: none !important;
+        }
+
+        .flex-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .gap-8 {
+            gap: 8px;
+        }
+        .mt-8 {
+            margin-top: 8px;
+        }
+        .mt-12 {
+            margin-top: 12px;
+        }
+        .text-muted {
+            color: #666;
+            font-size: 0.8em;
+        }
+        .text-center {
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                width: 96%;
+                padding: 12px;
+            }
+            .loan-card {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .loan-card input[type="checkbox"] {
+                align-self: flex-start;
+            }
+            .summary-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div>⏳ Loading V² Quick Pay ...</div>
+    </div>
+
+    <div id="passwordModal" class="password-overlay">
+        <div class="password-card">
+            <h2>🔐 V² Quick Pay</h2>
+            <p>Enter password</p>
+            <input type="password" id="passwordInput" placeholder="Password" autofocus>
+            <button id="unlockBtn">Unlock</button>
+            <div id="pwdError" class="error-msg"></div>
+        </div>
+    </div>
+
+    <div id="mainApp" style="display:none">
+        <div class="container">
+            <h1>⚡ V² Quick Pay</h1>
+            <div class="subhead">Select customer, choose loans, enter total amount &amp; pay in one click</div>
+
+            <a href="index.html" class="back-link">← Back to Dashboard</a>
+
+            <hr style="margin:14px 0; border:0; border-top:1px solid #ddd;">
+
+            <label>👤 Select Customer</label>
+            <select id="custSelect">
+                <option value="">-- Choose Customer --</option>
+            </select>
+
+            <div id="loanListContainer">
+                <div class="loader">Select a customer to view loans</div>
+            </div>
+
+            <div id="paymentSection" style="display:none;">
+                <div class="summary-bar">
+                    <span><span class="total-label">Selected Loans:</span> <span id="selectedCount">0</span></span>
+                    <span><span class="total-label">Total Outstanding:</span> <span id="totalOutstanding">₹0</span></span>
+                </div>
+
+                <label>💰 Total Amount Received (₹)</label>
+                <input type="number" id="totalAmountInput" placeholder="Enter total payment amount" step="0.01" min="0">
+
+                <div id="previewContainer" style="display:none;">
+                    <div class="preview-box" id="previewBox"></div>
+                </div>
+
+                <button id="executePayBtn" class="success" style="display:none;">✅ Confirm &amp; Pay All</button>
+            </div>
+
+            <div style="margin-top:16px; text-align:center;">
+                <button id="downloadReportBtn" class="secondary" style="width:auto; padding:8px 24px; background:#2a9d8f;">
+                    📊 Download Full Report (Excel)
+                </button>
+                <span style="font-size:0.7em; color:#666; display:block; margin-top:4px;">All loans as separate sheets</span>
+            </div>
+
+            <div class="footer">
+                V² · Quick Pay · Cloud Sync
+                <div id="syncStatus" class="sync-status">🔄 Connecting...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // FIREBASE CONFIG
+        // ============================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCCjWVI1hB3sbu0JiA4viW1BK81xbMML-U",
+            authDomain: "csl-calculations.firebaseapp.com",
+            projectId: "csl-calculations",
+            storageBucket: "csl-calculations.firebasestorage.app",
+            messagingSenderId: "887219643486",
+            appId: "1:887219643486:web:0cb001f2c72039a00240cf"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const COLLECTION = "VSQURE";
+        const DOC_ID = "appData";
+
+        // ============================================================
+        // STATE
+        // ============================================================
+        let customers = [];
+        let loans = [];
+        let transactions = [];
+        let cashCapital = 0;
+        let capitalHistory = [];
+        let currentRole = "";
+        let unsubscribe = null;
+        let selectedLoanIds = new Set();
+        let isSaving = false;
+
+        // ============================================================
+        // HELPERS
+        // ============================================================
+        function formatDateDMY(dateStr) {
+            if (!dateStr) return '';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}.${parts[1]}.${parts[0]}`;
+            return dateStr;
+        }
+
+        function getLoan(id) { return loans.find(l => l.id == id); }
+
+        function getCustomer(id) { return customers.find(c => c.id == id); }
+
+        function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ?
+                '&lt;' : '&gt;'); }
+
+        function getPrincipalRemaining(loan) {
+            const totalPrincipalRecovered = transactions
+                .filter(t => t.loanId === loan.id)
+                .reduce((sum, t) => sum + (t.principalPortion || 0), 0);
+            return Math.max(0, loan.principalAmount - totalPrincipalRecovered);
+        }
+
+        function getAccruedInterestUpToDate(loan, asOfDate, principalBalance) {
+            if (loan.method === 4) return 0;
+            if (!loan.interestRate || loan.interestRate === 0) return 0;
+            const pBal = (principalBalance !== undefined && principalBalance !== null) ? principalBalance :
+                getPrincipalRemaining(loan);
+            if (pBal <= 0) return 0;
+            const dailyRate = (loan.interestRate / 100) / 30;
+            let lastEventDate = loan.startDate ? new Date(loan.startDate) : new Date();
+            const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a, b) => new Date(b.date) - new Date(a
+            .date));
+            if (loanTxns.length > 0) lastEventDate = new Date(loanTxns[0].date);
+            const targetDate = new Date(asOfDate);
+            if (targetDate <= lastEventDate) return 0;
+            const diffDays = Math.floor((targetDate - lastEventDate) / (1000 * 60 * 60 * 24));
+            if (diffDays <= 0) return 0;
+            const interest = pBal * dailyRate * diffDays;
+            return parseFloat(interest.toFixed(2));
+        }
+
+        function getNextDueForLoan(loan) {
+            if (loan.method !== 3 && loan.method !== 4) return null;
+            if (loan.status === 'closed') return null;
+            const startDate = new Date(loan.startDate);
+            const schedule = [];
+            if (loan.method === 3) {
+                for (let i = 1; i <= (loan.tenure || 1); i++) {
+                    const due = new Date(startDate);
+                    due.setMonth(startDate.getMonth() + i);
+                    schedule.push({ planned: due.toISOString().slice(0, 10), expected: loan.emiAmount, index: i });
+                }
+            } else if (loan.method === 4) {
+                for (let i = 1; i <= (loan.tenure || 44); i++) {
+                    const due = new Date(startDate);
+                    due.setDate(startDate.getDate() + (i * 7));
+                    schedule.push({ planned: due.toISOString().slice(0, 10), expected: loan.weeklyAmount, index: i });
+                }
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a, b) => new Date(a.date) - new Date(b
+            .date));
+            for (let i = 0; i < schedule.length; i++) {
+                const inst = schedule[i];
+                const dueDate = new Date(inst.planned);
+                if (dueDate < today) continue;
+                // check if paid
+                if (i < loanTxns.length) {
+                    const txnDate = new Date(loanTxns[i].date);
+                    const diffDays = Math.abs((txnDate - dueDate) / (1000 * 60 * 60 * 24));
+                    if (diffDays <= 7) continue;
+                }
+                const diffDays = Math.floor((dueDate - today) / (1000 * 60 * 60 * 24));
+                const isOverdue = dueDate < today;
+                return {
+                    dueDate: inst.planned,
+                    dueDateStr: formatDateDMY(inst.planned),
+                    isOverdue,
+                    amount: inst.expected,
+                    installmentNum: i + 1,
+                    diffDays
+                };
+            }
+            return null;
+        }
+
+        function totalInterestEarned() {
+            return transactions.reduce((s, t) => s + (t.interestPortion || 0), 0);
+        }
+
+        function totalPrincipalRecovered() {
+            return transactions.reduce((s, t) => s + (t.principalPortion || 0), 0);
+        }
+
+        function totalOutstandingPrincipal() {
+            let out = 0;
+            loans.forEach(l => { if (l.status !== 'closed') out += getPrincipalRemaining(l); });
+            return out;
+        }
+
+        function totalDisbursed() { return loans.reduce((s, l) => s + l.principalAmount, 0); }
+
+        // ============================================================
+        // FIREBASE DATA
+        // ============================================================
+        function loadData() {
+            if (unsubscribe) unsubscribe();
+            unsubscribe = db.collection(COLLECTION).doc(DOC_ID).onSnapshot(
+                (doc) => {
+                    if (doc.exists) {
+                        const d = doc.data();
+                        customers = d.customers || [];
+                        loans = d.loans || [];
+                        transactions = d.transactions || [];
+                        cashCapital = d.cashCapital || 0;
+                        capitalHistory = d.capitalHistory || [];
+                        // ensure loan numbers
+                        assignMissingLoanNumbersSync();
+                        renderAll();
+                        document.getElementById('syncStatus').innerHTML = "☁️ Active";
+                        document.getElementById('loadingOverlay').classList.add('hidden');
+                    } else {
+                        const initialData = { customers: [], loans: [], transactions: [], cashCapital: 0,
+                            capitalHistory: [] };
+                        db.collection(COLLECTION).doc(DOC_ID).set(initialData)
+                            .then(() => {})
+                            .catch(err => {
+                                console.error("Init error:", err);
+                                document.getElementById('syncStatus').innerHTML = "❌ Init Error";
+                            });
+                    }
+                },
+                (error) => {
+                    console.error("Firestore error:", error);
+                    document.getElementById('syncStatus').innerHTML = "❌ Sync Error";
+                    document.getElementById('loadingOverlay').classList.add('hidden');
+                }
+            );
+        }
+
+        function assignMissingLoanNumbersSync() {
+            const loansWithoutNumber = loans.filter(l => !l.loanNumber);
+            if (loansWithoutNumber.length === 0) return;
+            loansWithoutNumber.sort((a, b) => a.id - b.id);
+            let maxNum = 0;
+            loans.forEach(loan => {
+                if (loan.loanNumber) {
+                    const num = parseInt(loan.loanNumber, 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            });
+            let currentNumber = maxNum + 1;
+            for (const loan of loansWithoutNumber) {
+                loan.loanNumber = currentNumber.toString().padStart(3, '0');
+                currentNumber++;
+            }
+            saveAll();
+        }
+
+        async function saveAll() {
+            if (currentRole !== "admin") return;
+            if (isSaving) return;
+            isSaving = true;
+            try {
+                document.getElementById('syncStatus').innerHTML = "🔄 Syncing...";
+                await db.collection(COLLECTION).doc(DOC_ID).set({
+                    customers,
+                    loans,
+                    transactions,
+                    cashCapital,
+                    capitalHistory,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                document.getElementById('syncStatus').innerHTML = "✅ Synced";
+                setTimeout(() => {
+                    if (document.getElementById('syncStatus').innerHTML === "✅ Synced") {
+                        document.getElementById('syncStatus').innerHTML = "☁️ Active";
+                    }
+                }, 2000);
+            } catch (e) {
+                console.error("Save error:", e);
+                document.getElementById('syncStatus').innerHTML = "❌ Save Error";
+                alert("Error saving data! Check network.");
+            } finally {
+                isSaving = false;
+            }
+        }
+
+        // ============================================================
+        // TRANSACTION ENGINE
+        // ============================================================
+        function addTransaction(loanId, date, amount, remark) {
+            if (currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
+            const loan = getLoan(loanId);
+            if (!loan) return { success: false, msg: "Loan not found" };
+            if (loan.status === 'closed') return { success: false, msg: "Loan already closed" };
+            if (amount <= 0) return { success: false, msg: "Amount must be positive" };
+
+            let interestPortion = 0,
+                principalPortion = 0;
+            let outstandingPrincipal = getPrincipalRemaining(loan);
+
+            if (loan.method === 2) {
+                const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a, b) => new Date(b.date) - new Date(
+                    a.date));
+                let lastDate = loan.startDate ? new Date(loan.startDate) : new Date();
+                if (loanTxns.length > 0) lastDate = new Date(loanTxns[0].date);
+                let currentDate = new Date(date);
+                if (isNaN(currentDate)) currentDate = new Date();
+                const diffDays = Math.max(0, Math.floor((currentDate - lastDate) / (1000 * 60 * 60 * 24)));
+                const monthlyRate = loan.interestRate / 100;
+                const dailyRate = monthlyRate / 30;
+                let interestAccrued = outstandingPrincipal * dailyRate * diffDays;
+                interestAccrued = parseFloat(interestAccrued.toFixed(2));
+                if (amount <= interestAccrued) { interestPortion = amount;
+                    principalPortion = 0; } else { interestPortion = interestAccrued;
+                    principalPortion = amount - interestAccrued; if (principalPortion > outstandingPrincipal)
+                        principalPortion = outstandingPrincipal; }
+            } else if (loan.method === 1) {
+                interestPortion = amount;
+                principalPortion = 0;
+            } else if (loan.method === 3) {
+                const monthlyRate = loan.interestRate / 100;
+                let interestDue = outstandingPrincipal * monthlyRate;
+                interestDue = parseFloat(interestDue.toFixed(2));
+                interestPortion = Math.min(amount, interestDue);
+                principalPortion = amount - interestPortion;
+                if (principalPortion > outstandingPrincipal) principalPortion = outstandingPrincipal;
+            } else if (loan.method === 4) {
+                if (amount <= outstandingPrincipal) { principalPortion = amount;
+                    interestPortion = 0; } else { principalPortion = outstandingPrincipal;
+                    interestPortion = amount - outstandingPrincipal; }
+            }
+
+            const newTxn = {
+                id: Date.now() + Math.random(),
+                loanId: loan.id,
+                date,
+                amount,
+                interestPortion,
+                principalPortion,
+                remark: remark || "",
+                timestamp: new Date().toISOString()
+            };
+            transactions.push(newTxn);
+            cashCapital += amount;
+
+            const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + (t
+                .principalPortion || 0), 0);
+            if (totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
+            else loan.status = 'active';
+
+            saveAll();
+            return { success: true, msg: "Payment added!", txn: newTxn };
+        }
+
+        // ============================================================
+        // RENDER
+        // ============================================================
+        function renderCustomers() {
+            const sel = document.getElementById('custSelect');
+            if (!sel) return;
+            const currentVal = sel.value;
+            sel.innerHTML = '<option value="">-- Choose Customer --</option>' +
+                customers.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+            if (currentVal) sel.value = currentVal;
+        }
+
+        function renderLoansForCustomer(custId) {
+            const container = document.getElementById('loanListContainer');
+            const paymentSection = document.getElementById('paymentSection');
+            if (!custId) {
+                container.innerHTML = '<div class="loader">Select a customer to view loans</div>';
+                paymentSection.style.display = 'none';
+                return;
+            }
+            const custLoans = loans.filter(l => l.customerId == custId);
+            if (custLoans.length === 0) {
+                container.innerHTML = '<div class="text-muted" style="padding:20px 0;text-align:center;">No loans for this customer</div>';
+                paymentSection.style.display = 'none';
+                return;
+            }
+
+            // Sort: active first, then closed
+            custLoans.sort((a, b) => {
+                if (a.status === 'closed' && b.status !== 'closed') return 1;
+                if (a.status !== 'closed' && b.status === 'closed') return -1;
+                return 0;
+            });
+
+            let html = '';
+            selectedLoanIds.clear();
+            custLoans.forEach(loan => {
+                const cust = getCustomer(loan.customerId);
+                const principalBal = getPrincipalRemaining(loan);
+                const dueInfo = getNextDueForLoan(loan);
+                const isClosed = loan.status === 'closed';
+                const methodText = loan.method === 1 ? 'Interest Only' :
+                    loan.method === 2 ? 'Flexible' :
+                    loan.method === 3 ? `EMI ₹${loan.emiAmount}` :
+                    `Weekly ₹${loan.weeklyAmount}`;
+
+                let dueHtml = '';
+                if (dueInfo) {
+                    const overdueClass = dueInfo.isOverdue ? 'overdue' : '';
+                    dueHtml =
+                        `<span class="loan-due ${overdueClass}">📅 Due: ${dueInfo.dueDateStr} (₹${dueInfo.amount})${dueInfo.isOverdue ? ' ⚠️ OVERDUE' : ''}</span>`;
+                } else if (!isClosed && (loan.method === 3 || loan.method === 4)) {
+                    dueHtml = `<span class="loan-due" style="background:#e9ecef;color:#555;">✅ All paid</span>`;
+                }
+
+                const statusClass = isClosed ? 'closed' : 'active';
+                const statusText = isClosed ? 'Closed' : 'Active';
+
+                const isChecked = !isClosed && principalBal > 0.01;
+                if (isChecked) selectedLoanIds.add(loan.id);
+
+                html += `
+                    <div class="loan-card ${isChecked ? 'selected' : ''}" data-loan-id="${loan.id}">
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} ${isClosed ? 'disabled' : ''} class="loan-checkbox" data-id="${loan.id}">
+                        <div class="loan-info">
+                            <div class="loan-title">#${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}</div>
+                            <div class="loan-detail">${methodText} · ₹${loan.principalAmount} · ${loan.interestRate}% · Start: ${formatDateDMY(loan.startDate)}</div>
+                            <div class="loan-detail">Balance: ₹${principalBal.toFixed(2)} ${dueHtml}</div>
+                        </div>
+                        <span class="loan-status-badge ${statusClass}">${statusText}</span>
+                        <span class="loan-amount-badge">₹${principalBal.toFixed(2)}</span>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            paymentSection.style.display = 'block';
+            updateSummary();
+
+            // Attach checkbox events
+            document.querySelectorAll('.loan-checkbox').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const id = parseInt(this.dataset.id);
+                    if (this.checked) selectedLoanIds.add(id);
+                    else selectedLoanIds.delete(id);
+                    // highlight card
+                    const card = this.closest('.loan-card');
+                    if (card) card.classList.toggle('selected', this.checked);
+                    updateSummary();
+                    updatePreview();
+                });
+            });
+
+            // trigger preview update
+            document.getElementById('totalAmountInput').value = '';
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('executePayBtn').style.display = 'none';
+        }
+
+        function updateSummary() {
+            let count = 0,
+                totalOut = 0;
+            selectedLoanIds.forEach(id => {
+                const loan = getLoan(id);
+                if (loan) {
+                    const bal = getPrincipalRemaining(loan);
+                    if (bal > 0.01) { count++;
+                        totalOut += bal; }
+                }
+            });
+            document.getElementById('selectedCount').textContent = count;
+            document.getElementById('totalOutstanding').textContent = `₹${totalOut.toFixed(2)}`;
+        }
+
+        function updatePreview() {
+            const totalAmt = parseFloat(document.getElementById('totalAmountInput').value);
+            const previewContainer = document.getElementById('previewContainer');
+            const previewBox = document.getElementById('previewBox');
+            const execBtn = document.getElementById('executePayBtn');
+
+            if (isNaN(totalAmt) || totalAmt <= 0 || selectedLoanIds.size === 0) {
+                previewContainer.style.display = 'none';
+                execBtn.style.display = 'none';
+                return;
+            }
+
+            // Build distribution list
+            const dist = buildDistribution(totalAmt);
+            if (dist.length === 0) {
+                previewContainer.style.display = 'none';
+                execBtn.style.display = 'none';
+                return;
+            }
+
+            let html = '<strong>📊 Distribution Preview</strong>';
+            let totalDist = 0;
+            dist.forEach(d => {
+                totalDist += d.amount;
+                const loan = getLoan(d.loanId);
+                const cust = loan ? getCustomer(loan.customerId) : null;
+                html +=
+                    `<div class="preview-item"><span>#${loan?.loanNumber || '?'} - ${cust?.name || 'Unknown'}</span><span>₹${d.amount.toFixed(2)}</span></div>`;
+            });
+            html +=
+                `<div class="preview-item" style="font-weight:bold;border-top:2px solid #0077b6;padding-top:6px;margin-top:4px;"><span>Total</span><span>₹${totalDist.toFixed(2)}</span></div>`;
+            if (Math.abs(totalDist - totalAmt) > 0.01) {
+                html += `<div style="color:#b45309;font-size:0.8em;margin-top:4px;">⚠️ Remaining: ₹${(totalAmt - totalDist).toFixed(2)} will be added to first loan</div>`;
+            }
+            previewBox.innerHTML = html;
+            previewContainer.style.display = 'block';
+            execBtn.style.display = 'block';
+        }
+
+        function buildDistribution(totalAmount) {
+            const selected = [];
+            selectedLoanIds.forEach(id => {
+                const loan = getLoan(id);
+                if (loan && loan.status !== 'closed') {
+                    const bal = getPrincipalRemaining(loan);
+                    if (bal > 0.01) selected.push({ loanId: loan.id, balance: bal });
+                }
+            });
+            if (selected.length === 0) return [];
+
+            const totalBal = selected.reduce((s, item) => s + item.balance, 0);
+            const result = [];
+            let remaining = totalAmount;
+
+            for (const item of selected) {
+                let share = (item.balance / totalBal) * totalAmount;
+                share = Math.min(share, item.balance);
+                share = Math.round(share * 100) / 100;
+                if (share > 0.01) {
+                    result.push({ loanId: item.loanId, amount: share });
+                    remaining -= share;
+                }
+            }
+
+            // distribute remaining to first loan (if any)
+            if (remaining > 0.01 && result.length > 0) {
+                result[0].amount += remaining;
+                result[0].amount = Math.round(result[0].amount * 100) / 100;
+            }
+
+            return result.filter(d => d.amount > 0.01);
+        }
+
+        function renderAll() {
+            renderCustomers();
+            const custId = document.getElementById('custSelect').value;
+            if (custId) renderLoansForCustomer(custId);
+            else {
+                document.getElementById('loanListContainer').innerHTML =
+                    '<div class="loader">Select a customer to view loans</div>';
+                document.getElementById('paymentSection').style.display = 'none';
+            }
+            // disable if viewer
+            if (currentRole === "viewer") {
+                document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => {
+                    if (el.id !== 'downloadReportBtn') el.disabled = true;
+                });
+            } else {
+                document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => el.disabled =
+                    false);
+            }
+        }
+
+        // ============================================================
+        // REPORT GENERATOR (Excel)
+        // ============================================================
+        function generateExcelReport() {
+            if (loans.length === 0) {
+                alert("No loans to export.");
+                return;
+            }
+
+            const workbook = XLSX.utils.book_new();
+
+            // Summary sheet
+            const summaryData = [
+                ['V² Loan Manager - Full Report'],
+                ['Generated:', new Date().toLocaleString()],
+                [],
+                ['Total Customers', customers.length],
+                ['Total Loans', loans.length],
+                ['Active Loans', loans.filter(l => l.status !== 'closed').length],
+                ['Closed Loans', loans.filter(l => l.status === 'closed').length],
+                ['Total Disbursed', totalDisbursed()],
+                ['Total Principal Recovered', totalPrincipalRecovered()],
+                ['Total Interest Earned', totalInterestEarned()],
+                ['Total Outstanding Principal', totalOutstandingPrincipal()],
+                ['Cash on Hand', cashCapital],
+                [],
+                ['Loan #', 'Customer', 'Amount', 'Rate', 'Method', 'Status', 'Start Date', 'Outstanding', 'Total Paid',
+                    'Interest Paid', 'Principal Paid'
+                ]
+            ];
+
+            loans.forEach(loan => {
+                const cust = getCustomer(loan.customerId);
+                const methodNames = ['', 'Interest Only', 'Flexible', 'Monthly EMI', 'Weekly EMI'];
+                const totalPaid = transactions.filter(t => t.loanId === loan.id).reduce((s, t) => s + t.amount, 0);
+                const interestPaid = transactions.filter(t => t.loanId === loan.id).reduce((s, t) => s + (t
+                    .interestPortion || 0), 0);
+                const principalPaid = transactions.filter(t => t.loanId === loan.id).reduce((s, t) => s + (t
+                    .principalPortion || 0), 0);
+                summaryData.push([
+                    loan.loanNumber || '?',
+                    cust ? cust.name : 'Unknown',
+                    loan.principalAmount,
+                    loan.interestRate || 0,
+                    methodNames[loan.method] || loan.method,
+                    loan.status || 'active',
+                    loan.startDate || '',
+                    getPrincipalRemaining(loan),
+                    totalPaid,
+                    interestPaid,
+                    principalPaid
+                ]);
+            });
+
+            const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
+            // Each loan gets a sheet
+            loans.forEach(loan => {
+                const cust = getCustomer(loan.customerId);
+                const sheetName = `#${loan.loanNumber} ${cust ? cust.name.slice(0,12) : 'Unknown'}`.replace(
+                /[\\\/\*\?\[\]]/g, '');
+                const methodNames = ['', 'Interest Only', 'Flexible', 'Monthly EMI', 'Weekly EMI'];
+                const methodDesc = loan.method === 3 ? `EMI ₹${loan.emiAmount} × ${loan.tenure} months` :
+                    loan.method === 4 ? `Weekly ₹${loan.weeklyAmount} × ${loan.tenure} weeks` :
+                    methodNames[loan.method] || '';
+
+                const rows = [
+                    [`Loan #${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}`],
+                    [],
+                    ['Loan Details'],
+                    ['Principal Amount', loan.principalAmount],
+                    ['Interest Rate', loan.interestRate + '%'],
+                    ['Method', methodDesc],
+                    ['Start Date', loan.startDate || ''],
+                    ['Status', loan.status || 'active'],
+                    ['Outstanding Balance', getPrincipalRemaining(loan)],
+                    ['Total Paid', transactions.filter(t => t.loanId === loan.id).reduce((s, t) => s + t.amount, 0)],
+                    ['Interest Paid', transactions.filter(t => t.loanId === loan.id).reduce((s, t) => s + (t
+                        .interestPortion || 0), 0)],
+                    ['Principal Paid', transactions.filter(t => t.loanId === loan.id).reduce((s, t) => s + (t
+                        .principalPortion || 0), 0)],
+                    [],
+                    ['Transaction History'],
+                    ['Date', 'Amount', 'Interest', 'Principal', 'Remark', 'Running Balance']
+                ];
+
+                let runningBalance = loan.principalAmount;
+                const loanTxns = transactions.filter(t => t.loanId === loan.id).sort((a, b) => new Date(a.date) -
+                    new Date(b.date));
+                if (loanTxns.length === 0) {
+                    rows.push(['No transactions', '', '', '', '', '']);
+                } else {
+                    loanTxns.forEach(t => {
+                        runningBalance -= (t.principalPortion || 0);
+                        rows.push([
+                            t.date || '',
+                            t.amount || 0,
+                            t.interestPortion || 0,
+                            t.principalPortion || 0,
+                            t.remark || '',
+                            Math.max(0, runningBalance)
+                        ]);
+                    });
+                }
+
+                // Payment schedule if EMI or Weekly
+                if (loan.method === 3 || loan.method === 4) {
+                    rows.push([]);
+                    rows.push(['Payment Schedule']);
+                    rows.push(['#', 'Due Date', 'Expected', 'Status']);
+                    const startDate = new Date(loan.startDate);
+                    const schedule = [];
+                    if (loan.method === 3) {
+                        for (let i = 1; i <= (loan.tenure || 1); i++) {
+                            const due = new Date(startDate);
+                            due.setMonth(startDate.getMonth() + i);
+                            schedule.push({ planned: due.toISOString().slice(0, 10), expected: loan.emiAmount,
+                                index: i });
+                        }
+                    } else if (loan.method === 4) {
+                        for (let i = 1; i <= (loan.tenure || 44); i++) {
+                            const due = new Date(startDate);
+                            due.setDate(startDate.getDate() + (i * 7));
+                            schedule.push({ planned: due.toISOString().slice(0, 10), expected: loan.weeklyAmount,
+                                index: i });
+                        }
+                    }
+                    const paidTxns = transactions.filter(t => t.loanId === loan.id).sort((a, b) => new Date(a.date) -
+                        new Date(b.date));
+                    schedule.forEach((inst, idx) => {
+                        let status = 'Pending';
+                        if (idx < paidTxns.length) {
+                            const diffDays = Math.abs((new Date(paidTxns[idx].date) - new Date(inst.planned)) / (
+                                1000 * 60 * 60 * 24));
+                            if (diffDays <= 7) status = 'Paid ✓';
+                            else status = 'Paid (late)';
+                        }
+                        rows.push([inst.index, inst.planned, inst.expected, status]);
+                    });
+                }
+
+                const sheet = XLSX.utils.aoa_to_sheet(rows);
+                // column widths
+                sheet['!cols'] = [
+                    { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 16 }
+                ];
+                XLSX.utils.book_append_sheet(workbook, sheet, sheetName.slice(0, 31));
+            });
+
+            // Write file
+            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `V2_Report_${new Date().toISOString().slice(0,10)}.xlsx`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+        }
+
+        // ============================================================
+        // EVENTS
+        // ============================================================
+        function initEvents() {
+            document.getElementById('custSelect')?.addEventListener('change', function() {
+                const custId = this.value;
+                if (custId) renderLoansForCustomer(custId);
+                else {
+                    document.getElementById('loanListContainer').innerHTML =
+                        '<div class="loader">Select a customer to view loans</div>';
+                    document.getElementById('paymentSection').style.display = 'none';
+                }
+            });
+
+            document.getElementById('totalAmountInput')?.addEventListener('input', updatePreview);
+
+            document.getElementById('executePayBtn')?.addEventListener('click', function() {
+                if (currentRole !== "admin") { alert("Viewer cannot add payments"); return; }
+                const totalAmt = parseFloat(document.getElementById('totalAmountInput').value);
+                if (isNaN(totalAmt) || totalAmt <= 0) { alert("Enter a valid total amount"); return; }
+                if (selectedLoanIds.size === 0) { alert("Select at least one loan"); return; }
+
+                const dist = buildDistribution(totalAmt);
+                if (dist.length === 0) { alert("No valid distribution"); return; }
+
+                const date = new Date().toISOString().slice(0, 10);
+                const confirmMsg = `Pay ₹${totalAmt.toFixed(2)} across ${dist.length} loan(s)?`;
+                if (!confirm(confirmMsg)) return;
+
+                let successCount = 0;
+                let errors = [];
+                dist.forEach(d => {
+                    const res = addTransaction(d.loanId, date, d.amount, "Quick Pay Bulk");
+                    if (res.success) successCount++;
+                    else errors.push(res.msg);
+                });
+
+                if (successCount > 0) {
+                    alert(`✅ ${successCount} payments added successfully!${errors.length ? '\nErrors: '+errors.join('; ') : ''}`);
+                    document.getElementById('totalAmountInput').value = '';
+                    document.getElementById('previewContainer').style.display = 'none';
+                    document.getElementById('executePayBtn').style.display = 'none';
+                    // re-render
+                    const custId = document.getElementById('custSelect').value;
+                    if (custId) renderLoansForCustomer(custId);
+                    renderAll();
+                } else {
+                    alert("❌ Failed to add payments. " + errors.join('; '));
+                }
+            });
+
+            document.getElementById('downloadReportBtn')?.addEventListener('click', function() {
+                generateExcelReport();
+            });
+
+            // password
+            document.getElementById('unlockBtn')?.addEventListener('click', unlockApp);
+            document.getElementById('passwordInput')?.addEventListener('keypress', e => { if (e.key === 'Enter')
+                    unlockApp(); });
+        }
+
+        // ============================================================
+        // PASSWORD
+        // ============================================================
+        async function unlockApp() {
+            const pwd = document.getElementById('passwordInput').value;
+            if (pwd === '2') { currentRole = "admin";
+                await proceed(); } else if (pwd === '4250') { currentRole = "viewer";
+                await proceed(); } else {
+                document.getElementById('pwdError').innerText = 'Wrong password';
+            }
+        }
+
+        async function proceed() {
+            document.getElementById('passwordModal').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            loadData();
+            initEvents();
+        }
+
+        // ============================================================
+        // START
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // show password modal by default
+            document.getElementById('passwordModal').style.display = 'flex';
+            document.getElementById('passwordInput').focus();
+        });
+    </script>
+</body>
+</html>
