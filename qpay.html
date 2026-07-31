@@ -105,6 +105,10 @@
         button.secondary:active {
             background: #545b62;
         }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
         .back-link {
             display: inline-block;
             margin-top: 10px;
@@ -312,6 +316,60 @@
             margin-top: 12px;
         }
 
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2a9d8f;
+            color: #fff;
+            padding: 16px 28px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1em;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            z-index: 3000;
+            animation: fadeInUp 0.3s ease;
+            max-width: 90%;
+            text-align: center;
+        }
+        .toast.error {
+            background: #dc3545;
+        }
+        .toast.success {
+            background: #2a9d8f;
+        }
+        .toast.fade-out {
+            animation: fadeOutDown 0.5s ease forwards;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+        @keyframes fadeOutDown {
+            from {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+        }
+
+        .date-input-wrapper {
+            position: relative;
+        }
+        .date-input-wrapper input[type="date"] {
+            cursor: pointer;
+        }
+
         @media (max-width: 600px) {
             .container {
                 width: 96%;
@@ -327,6 +385,12 @@
             .summary-bar {
                 flex-direction: column;
                 text-align: center;
+            }
+            .toast {
+                width: 90%;
+                bottom: 20px;
+                padding: 14px 20px;
+                font-size: 0.9em;
             }
         }
     </style>
@@ -361,6 +425,11 @@
                     <span><span class="total-label">Total Outstanding:</span> <span id="totalOutstanding">₹0</span></span>
                 </div>
 
+                <label>📅 Payment Date</label>
+                <div class="date-input-wrapper">
+                    <input type="date" id="paymentDate" />
+                </div>
+
                 <label>💰 Total Amount Received (₹)</label>
                 <input type="number" id="totalAmountInput" placeholder="Enter total payment amount" step="1" min="0" />
 
@@ -373,6 +442,7 @@
                 </div>
 
                 <button id="executePayBtn" class="success" style="display:none;">✅ Confirm &amp; Pay All</button>
+                <div id="payStatus" style="margin-top:8px;"></div>
             </div>
 
             <div style="margin-top:16px; text-align:center;">
@@ -407,7 +477,7 @@
         const DOC_ID = "appData";
 
         // ============================================================
-        // STATE - Admin only
+        // STATE
         // ============================================================
         let customers = [];
         let loans = [];
@@ -417,6 +487,26 @@
         let unsubscribe = null;
         let selectedLoanIds = new Set();
         let isSaving = false;
+        let isProcessing = false;
+
+        // ============================================================
+        // TOAST NOTIFICATION
+        // ============================================================
+        function showToast(message, type = 'success', duration = 4000) {
+            // Remove existing toast
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('fade-out');
+                setTimeout(() => toast.remove(), 500);
+            }, duration);
+        }
 
         // ============================================================
         // HELPERS
@@ -597,19 +687,20 @@
                         document.getElementById('syncStatus').innerHTML = "☁️ Active";
                     }
                 }, 2000);
+                return true;
             } catch (e) {
                 console.error("Save error:", e);
                 document.getElementById('syncStatus').innerHTML = "❌ Save Error";
-                alert("Error saving data! Check network.");
+                throw e;
             } finally {
                 isSaving = false;
             }
         }
 
         // ============================================================
-        // TRANSACTION ENGINE
+        // TRANSACTION ENGINE — with async save and verification
         // ============================================================
-        function addTransaction(loanId, date, amount, remark) {
+        async function addTransaction(loanId, date, amount, remark) {
             const loan = getLoan(loanId);
             if (!loan) return { success: false, msg: "Loan not found" };
             if (loan.status === 'closed') return { success: false, msg: "Loan already closed" };
@@ -661,6 +752,8 @@
                 remark: remark || "",
                 timestamp: new Date().toISOString()
             };
+
+            // Push to local arrays
             transactions.push(newTxn);
             cashCapital += amount;
 
@@ -669,8 +762,22 @@
             if (totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
             else loan.status = 'active';
 
-            saveAll();
-            return { success: true, msg: "Payment added!", txn: newTxn };
+            // Save to Firestore and wait for completion
+            try {
+                await saveAll();
+                return { success: true, msg: "Payment added!", txn: newTxn };
+            } catch (err) {
+                // Rollback local changes on save failure
+                const idx = transactions.findIndex(t => t.id === newTxn.id);
+                if (idx !== -1) transactions.splice(idx, 1);
+                cashCapital -= amount;
+                // Revert loan status
+                const totalPaidPrincipal2 = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + (t
+                    .principalPortion || 0), 0);
+                if (totalPaidPrincipal2 >= loan.principalAmount - 0.01) loan.status = 'closed';
+                else loan.status = 'active';
+                return { success: false, msg: "Save to Firestore failed: " + err.message };
+            }
         }
 
         // ============================================================
@@ -687,22 +794,18 @@
                 if (bal <= 0.01) continue;
 
                 let installment = 0;
-                // method 4: Weekly EMI, method 3: Monthly EMI
                 if (loan.method === 4) {
                     installment = loan.weeklyAmount || 0;
                 } else if (loan.method === 3) {
                     installment = loan.emiAmount || 0;
                 } else if (loan.method === 1) {
-                    // Interest only — pay the accrued interest
                     const interest = getAccruedInterestUpToDate(loan, today, bal);
-                    installment = Math.round(interest); // round to whole rupees
+                    installment = Math.round(interest);
                     if (installment < 1) installment = 0;
                 } else if (loan.method === 2) {
-                    // Flexible — pay the outstanding balance (full settlement)
                     installment = Math.round(bal);
                 }
 
-                // For method 1, if interest is 0, we still allow payment as principal
                 if (installment <= 0 && loan.method !== 1) continue;
 
                 const dueInfo = getNextDueForLoan(loan);
@@ -710,7 +813,7 @@
 
                 loanData.push({
                     loan,
-                    installment: Math.round(installment), // ensure integer
+                    installment: Math.round(installment),
                     dueDate,
                     dueInfo,
                     outstanding: bal,
@@ -718,14 +821,11 @@
                 });
             }
 
-            // Sort by due date (earliest first)
             loanData.sort((a, b) => a.dueDate - b.dueDate);
 
-            // Distribute: pay full installments in order
             let remaining = Math.round(totalAmount);
             const payments = [];
             const unpaid = [];
-            let allPaid = true;
 
             for (const data of loanData) {
                 const inst = data.installment;
@@ -745,19 +845,17 @@
                         loanNumber: data.loan.loanNumber,
                         customerName: getCustomer(data.loan.customerId)?.name || 'Unknown'
                     });
-                    allPaid = false;
-                    // Stop here — don't process further loans
                     break;
                 }
             }
 
-            // If there's remaining amount after paying all, add to first payment as extra principal
             if (remaining > 0 && payments.length > 0) {
                 payments[0].amount += remaining;
+                payments[0].amount = Math.round(payments[0].amount);
             }
 
-            // Check if any payment was made
             const hasPayments = payments.length > 0;
+            const allPaid = unpaid.length === 0;
 
             return { payments, unpaid, hasPayments, allPaid, remaining };
         }
@@ -824,11 +922,9 @@
                 const statusClass = isClosed ? 'closed' : 'active';
                 const statusText = isClosed ? 'Closed' : 'Active';
 
-                // For EMI loans, check if balance > 0
                 const isChecked = !isClosed && principalBal > 0.01;
                 if (isChecked) selectedLoanIds.add(loan.id);
 
-                // Determine installment display
                 let instDisplay = '';
                 if (loan.method === 4) instDisplay = `Weekly: ₹${loan.weeklyAmount}`;
                 else if (loan.method === 3) instDisplay = `EMI: ₹${loan.emiAmount}`;
@@ -869,12 +965,19 @@
                 });
             });
 
-            // Reset inputs
+            // Set default date to today
+            const dateInput = document.getElementById('paymentDate');
+            if (dateInput) {
+                const todayStr = new Date().toISOString().slice(0, 10);
+                dateInput.value = todayStr;
+            }
+
             document.getElementById('totalAmountInput').value = '';
             document.getElementById('narrationInput').value = '';
             document.getElementById('previewContainer').style.display = 'none';
             document.getElementById('executePayBtn').style.display = 'none';
             document.getElementById('previewError').style.display = 'none';
+            document.getElementById('payStatus').innerHTML = '';
         }
 
         function updateSummary() {
@@ -899,7 +1002,6 @@
             const execBtn = document.getElementById('executePayBtn');
             const errorDiv = document.getElementById('previewError');
 
-            // Reset
             previewContainer.style.display = 'none';
             execBtn.style.display = 'none';
             errorDiv.style.display = 'none';
@@ -912,7 +1014,6 @@
             const result = calculateDistribution(totalAmt, selectedLoanIds);
 
             if (!result.hasPayments) {
-                // No payment could be made — show error
                 errorDiv.textContent = '⚠️ Total amount is less than the minimum EMI. Please unselect some loans or increase the amount.';
                 errorDiv.style.display = 'block';
                 previewContainer.style.display = 'block';
@@ -920,7 +1021,6 @@
                 return;
             }
 
-            // Build preview
             let html = '<strong>📊 Payment Distribution Preview</strong>';
             let totalDist = 0;
 
@@ -954,7 +1054,6 @@
             previewBox.innerHTML = html;
             previewContainer.style.display = 'block';
 
-            // Show confirm button only if there are payments and no errors
             if (result.hasPayments && result.payments.length > 0) {
                 execBtn.style.display = 'block';
             } else {
@@ -971,7 +1070,6 @@
                     '<div class="loader">Select a customer to view loans</div>';
                 document.getElementById('paymentSection').style.display = 'none';
             }
-            // All controls enabled (admin)
             document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => el.disabled = false);
         }
 
@@ -986,7 +1084,6 @@
 
             const workbook = XLSX.utils.book_new();
 
-            // Summary
             const summaryData = [
                 ['V² Loan Manager - Full Report'],
                 ['Generated:', new Date().toLocaleString()],
@@ -1032,7 +1129,6 @@
             const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
             XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-            // Each loan sheet
             loans.forEach(loan => {
                 const cust = getCustomer(loan.customerId);
                 const sheetName = `#${loan.loanNumber} ${cust ? cust.name.slice(0,12) : 'Unknown'}`.replace(
@@ -1081,7 +1177,6 @@
                     });
                 }
 
-                // Schedule
                 if (loan.method === 3 || loan.method === 4) {
                     rows.push([]);
                     rows.push(['Payment Schedule']);
@@ -1151,62 +1246,143 @@
 
             document.getElementById('totalAmountInput')?.addEventListener('input', updatePreview);
 
-            document.getElementById('executePayBtn')?.addEventListener('click', function() {
-                const totalAmt = parseFloat(document.getElementById('totalAmountInput').value);
-                const narration = document.getElementById('narrationInput').value.trim();
+            document.getElementById('executePayBtn')?.addEventListener('click', async function() {
+                if (isProcessing) return;
+                isProcessing = true;
+                const btn = this;
+                btn.disabled = true;
+                btn.textContent = '⏳ Processing...';
 
-                if (isNaN(totalAmt) || totalAmt <= 0) { alert("Enter a valid total amount"); return; }
-                if (selectedLoanIds.size === 0) { alert("Select at least one loan"); return; }
+                const statusDiv = document.getElementById('payStatus');
+                statusDiv.innerHTML = '';
 
-                const result = calculateDistribution(totalAmt, selectedLoanIds);
-                if (!result.hasPayments || result.payments.length === 0) {
-                    alert("Total amount is not enough for any full EMI. Please unselect some loans or increase the amount.");
-                    return;
-                }
+                try {
+                    const totalAmt = parseFloat(document.getElementById('totalAmountInput').value);
+                    const date = document.getElementById('paymentDate').value;
+                    const narration = document.getElementById('narrationInput').value.trim();
 
-                if (result.unpaid.length > 0) {
-                    const confirmMsg =
-                        `⚠️ ${result.unpaid.length} loan(s) will NOT be paid due to insufficient amount.\n\n✅ Will pay: ${result.payments.length} loan(s) for ₹${result.payments.reduce((s,p) => s + p.amount, 0).toFixed(2)}\n❌ Skipped: ${result.unpaid.length} loan(s)\n\nContinue?`;
-                    if (!confirm(confirmMsg)) return;
-                } else {
-                    const confirmMsg =
-                        `Pay ₹${result.payments.reduce((s,p) => s + p.amount, 0).toFixed(2)} across ${result.payments.length} loan(s)?`;
-                    if (!confirm(confirmMsg)) return;
-                }
+                    if (isNaN(totalAmt) || totalAmt <= 0) {
+                        showToast('Please enter a valid total amount', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✅ Confirm & Pay All';
+                        isProcessing = false;
+                        return;
+                    }
+                    if (selectedLoanIds.size === 0) {
+                        showToast('Please select at least one loan', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✅ Confirm & Pay All';
+                        isProcessing = false;
+                        return;
+                    }
+                    if (!date) {
+                        showToast('Please select a payment date', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '✅ Confirm & Pay All';
+                        isProcessing = false;
+                        return;
+                    }
 
-                const date = new Date().toISOString().slice(0, 10);
-                let successCount = 0;
-                let errors = [];
+                    const result = calculateDistribution(totalAmt, selectedLoanIds);
+                    if (!result.hasPayments || result.payments.length === 0) {
+                        showToast('Total amount is not enough for any full EMI. Please unselect some loans or increase the amount.',
+                            'error');
+                        btn.disabled = false;
+                        btn.textContent = '✅ Confirm & Pay All';
+                        isProcessing = false;
+                        return;
+                    }
 
-                result.payments.forEach(p => {
-                    const remark = `Quick Pay Bulk${narration ? ' - ' + narration : ''}`;
-                    const res = addTransaction(p.loanId, date, p.amount, remark);
-                    if (res.success) successCount++;
-                    else errors.push(`Loan #${p.loanNumber}: ${res.msg}`);
-                });
+                    if (result.unpaid.length > 0) {
+                        const confirmMsg =
+                            `⚠️ ${result.unpaid.length} loan(s) will NOT be paid due to insufficient amount.\n\n✅ Will pay: ${result.payments.length} loan(s) for ₹${result.payments.reduce((s,p) => s + p.amount, 0).toFixed(2)}\n❌ Skipped: ${result.unpaid.length} loan(s)\n\nContinue?`;
+                        if (!confirm(confirmMsg)) {
+                            btn.disabled = false;
+                            btn.textContent = '✅ Confirm & Pay All';
+                            isProcessing = false;
+                            return;
+                        }
+                    } else {
+                        const confirmMsg =
+                            `Pay ₹${result.payments.reduce((s,p) => s + p.amount, 0).toFixed(2)} across ${result.payments.length} loan(s)?`;
+                        if (!confirm(confirmMsg)) {
+                            btn.disabled = false;
+                            btn.textContent = '✅ Confirm & Pay All';
+                            isProcessing = false;
+                            return;
+                        }
+                    }
 
-                if (successCount > 0) {
-                    alert(`✅ ${successCount} payments added successfully!${errors.length ? '\nErrors: '+errors.join('; ') : ''}`);
-                    document.getElementById('totalAmountInput').value = '';
-                    document.getElementById('narrationInput').value = '';
-                    document.getElementById('previewContainer').style.display = 'none';
-                    document.getElementById('executePayBtn').style.display = 'none';
-                    document.getElementById('previewError').style.display = 'none';
-                    const custId = document.getElementById('custSelect').value;
-                    if (custId) renderLoansForCustomer(custId);
-                    renderAll();
-                } else {
-                    alert("❌ Failed to add payments. " + errors.join('; '));
+                    // Process payments one by one with Firestore save
+                    let successCount = 0;
+                    let errors = [];
+                    let totalPaid = 0;
+
+                    statusDiv.innerHTML = '<div style="color:#0077b6;">⏳ Adding payments to Firestore...</div>';
+
+                    for (const p of result.payments) {
+                        const remark = `Quick Pay Bulk${narration ? ' - ' + narration : ''}`;
+                        const res = await addTransaction(p.loanId, date, p.amount, remark);
+                        if (res.success) {
+                            successCount++;
+                            totalPaid += p.amount;
+                        } else {
+                            errors.push(`Loan #${p.loanNumber}: ${res.msg}`);
+                        }
+                    }
+
+                    if (successCount > 0) {
+                        const msg =
+                            `✅ ${successCount} payments added successfully! Total: ₹${totalPaid.toFixed(2)}${errors.length ? '\nErrors: '+errors.join('; ') : ''}`;
+                        showToast(msg, 'success', 5000);
+                        statusDiv.innerHTML =
+                            `<div class="success-msg">✅ ${successCount} payments saved to Firestore successfully!</div>`;
+
+                        // Reset form
+                        document.getElementById('totalAmountInput').value = '';
+                        document.getElementById('narrationInput').value = '';
+                        document.getElementById('previewContainer').style.display = 'none';
+                        document.getElementById('executePayBtn').style.display = 'none';
+                        document.getElementById('previewError').style.display = 'none';
+
+                        // Re-render to reflect changes
+                        const custId = document.getElementById('custSelect').value;
+                        if (custId) renderLoansForCustomer(custId);
+                        renderAll();
+
+                        // Force a manual refresh of data from Firestore
+                        // The snapshot listener will update automatically
+                    } else {
+                        const errMsg = '❌ Failed to add payments. ' + errors.join('; ');
+                        showToast(errMsg, 'error', 5000);
+                        statusDiv.innerHTML = `<div class="error-msg">${errMsg}</div>`;
+                    }
+
+                } catch (err) {
+                    console.error('Payment error:', err);
+                    showToast('❌ Error processing payment: ' + err.message, 'error');
+                    statusDiv.innerHTML = `<div class="error-msg">❌ Error: ${err.message}</div>`;
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = '✅ Confirm & Pay All';
+                    isProcessing = false;
                 }
             });
 
             document.getElementById('downloadReportBtn')?.addEventListener('click', function() {
                 generateExcelReport();
             });
+
+            // Set default date
+            const dateInput = document.getElementById('paymentDate');
+            if (dateInput) {
+                const today = new Date().toISOString().slice(0, 10);
+                dateInput.value = today;
+            }
         }
 
         // ============================================================
-        // START - No password, direct admin load
+        // START
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
             loadData();
