@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>V² · Quick Pay</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#ffffff">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -269,35 +269,6 @@
             color: #e0f7fa;
         }
 
-        .password-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-        }
-        .password-card {
-            background: white;
-            border-radius: 24px;
-            padding: 24px;
-            width: 80%;
-            max-width: 300px;
-            text-align: center;
-        }
-        .password-card input {
-            width: 100%;
-            margin: 10px 0;
-        }
-        .error-msg {
-            color: red;
-            font-size: 0.8em;
-            min-height: 20px;
-        }
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -321,15 +292,6 @@
             flex-wrap: wrap;
             gap: 8px;
             align-items: center;
-        }
-        .gap-8 {
-            gap: 8px;
-        }
-        .mt-8 {
-            margin-top: 8px;
-        }
-        .mt-12 {
-            margin-top: 12px;
         }
         .text-muted {
             color: #666;
@@ -364,17 +326,7 @@
         <div>⏳ Loading V² Quick Pay ...</div>
     </div>
 
-    <div id="passwordModal" class="password-overlay">
-        <div class="password-card">
-            <h2>🔐 V² Quick Pay</h2>
-            <p>Enter password</p>
-            <input type="password" id="passwordInput" placeholder="Password" autofocus>
-            <button id="unlockBtn">Unlock</button>
-            <div id="pwdError" class="error-msg"></div>
-        </div>
-    </div>
-
-    <div id="mainApp" style="display:none">
+    <div id="mainApp">
         <div class="container">
             <h1>⚡ V² Quick Pay</h1>
             <div class="subhead">Select customer, choose loans, enter total amount &amp; pay in one click</div>
@@ -399,7 +351,7 @@
                 </div>
 
                 <label>💰 Total Amount Received (₹)</label>
-                <input type="number" id="totalAmountInput" placeholder="Enter total payment amount" step="0.01" min="0">
+                <input type="number" id="totalAmountInput" placeholder="Enter total payment amount" step="0.01" min="0" />
 
                 <div id="previewContainer" style="display:none;">
                     <div class="preview-box" id="previewBox"></div>
@@ -440,14 +392,14 @@
         const DOC_ID = "appData";
 
         // ============================================================
-        // STATE
+        // STATE - Admin only, no password needed
         // ============================================================
         let customers = [];
         let loans = [];
         let transactions = [];
         let cashCapital = 0;
         let capitalHistory = [];
-        let currentRole = "";
+        let currentRole = "admin"; // Force admin for this page
         let unsubscribe = null;
         let selectedLoanIds = new Set();
         let isSaving = false;
@@ -521,7 +473,6 @@
                 const inst = schedule[i];
                 const dueDate = new Date(inst.planned);
                 if (dueDate < today) continue;
-                // check if paid
                 if (i < loanTxns.length) {
                     const txnDate = new Date(loanTxns[i].date);
                     const diffDays = Math.abs((txnDate - dueDate) / (1000 * 60 * 60 * 24));
@@ -571,7 +522,6 @@
                         transactions = d.transactions || [];
                         cashCapital = d.cashCapital || 0;
                         capitalHistory = d.capitalHistory || [];
-                        // ensure loan numbers
                         assignMissingLoanNumbersSync();
                         renderAll();
                         document.getElementById('syncStatus').innerHTML = "☁️ Active";
@@ -615,7 +565,6 @@
         }
 
         async function saveAll() {
-            if (currentRole !== "admin") return;
             if (isSaving) return;
             isSaving = true;
             try {
@@ -647,7 +596,6 @@
         // TRANSACTION ENGINE
         // ============================================================
         function addTransaction(loanId, date, amount, remark) {
-            if (currentRole !== "admin") return { success: false, msg: "Viewer cannot add" };
             const loan = getLoan(loanId);
             if (!loan) return { success: false, msg: "Loan not found" };
             if (loan.status === 'closed') return { success: false, msg: "Loan already closed" };
@@ -733,12 +681,12 @@
             }
             const custLoans = loans.filter(l => l.customerId == custId);
             if (custLoans.length === 0) {
-                container.innerHTML = '<div class="text-muted" style="padding:20px 0;text-align:center;">No loans for this customer</div>';
+                container.innerHTML =
+                    '<div class="text-muted" style="padding:20px 0;text-align:center;">No loans for this customer</div>';
                 paymentSection.style.display = 'none';
                 return;
             }
 
-            // Sort: active first, then closed
             custLoans.sort((a, b) => {
                 if (a.status === 'closed' && b.status !== 'closed') return 1;
                 if (a.status !== 'closed' && b.status === 'closed') return -1;
@@ -790,13 +738,11 @@
             paymentSection.style.display = 'block';
             updateSummary();
 
-            // Attach checkbox events
             document.querySelectorAll('.loan-checkbox').forEach(cb => {
                 cb.addEventListener('change', function() {
                     const id = parseInt(this.dataset.id);
                     if (this.checked) selectedLoanIds.add(id);
                     else selectedLoanIds.delete(id);
-                    // highlight card
                     const card = this.closest('.loan-card');
                     if (card) card.classList.toggle('selected', this.checked);
                     updateSummary();
@@ -804,7 +750,6 @@
                 });
             });
 
-            // trigger preview update
             document.getElementById('totalAmountInput').value = '';
             document.getElementById('previewContainer').style.display = 'none';
             document.getElementById('executePayBtn').style.display = 'none';
@@ -837,7 +782,6 @@
                 return;
             }
 
-            // Build distribution list
             const dist = buildDistribution(totalAmt);
             if (dist.length === 0) {
                 previewContainer.style.display = 'none';
@@ -857,7 +801,8 @@
             html +=
                 `<div class="preview-item" style="font-weight:bold;border-top:2px solid #0077b6;padding-top:6px;margin-top:4px;"><span>Total</span><span>₹${totalDist.toFixed(2)}</span></div>`;
             if (Math.abs(totalDist - totalAmt) > 0.01) {
-                html += `<div style="color:#b45309;font-size:0.8em;margin-top:4px;">⚠️ Remaining: ₹${(totalAmt - totalDist).toFixed(2)} will be added to first loan</div>`;
+                html +=
+                    `<div style="color:#b45309;font-size:0.8em;margin-top:4px;">⚠️ Remaining: ₹${(totalAmt - totalDist).toFixed(2)} will be added to first loan</div>`;
             }
             previewBox.innerHTML = html;
             previewContainer.style.display = 'block';
@@ -889,7 +834,6 @@
                 }
             }
 
-            // distribute remaining to first loan (if any)
             if (remaining > 0.01 && result.length > 0) {
                 result[0].amount += remaining;
                 result[0].amount = Math.round(result[0].amount * 100) / 100;
@@ -907,19 +851,12 @@
                     '<div class="loader">Select a customer to view loans</div>';
                 document.getElementById('paymentSection').style.display = 'none';
             }
-            // disable if viewer
-            if (currentRole === "viewer") {
-                document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => {
-                    if (el.id !== 'downloadReportBtn') el.disabled = true;
-                });
-            } else {
-                document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => el.disabled =
-                    false);
-            }
+            // All controls are enabled since we are admin
+            document.querySelectorAll('#mainApp input, #mainApp select, #mainApp button').forEach(el => el.disabled = false);
         }
 
         // ============================================================
-        // REPORT GENERATOR (Excel)
+        // REPORT GENERATOR (Excel) - Full Details
         // ============================================================
         function generateExcelReport() {
             if (loans.length === 0) {
@@ -975,7 +912,7 @@
             const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
             XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-            // Each loan gets a sheet
+            // Each loan gets a detailed sheet
             loans.forEach(loan => {
                 const cust = getCustomer(loan.customerId);
                 const sheetName = `#${loan.loanNumber} ${cust ? cust.name.slice(0,12) : 'Unknown'}`.replace(
@@ -1061,7 +998,6 @@
                 }
 
                 const sheet = XLSX.utils.aoa_to_sheet(rows);
-                // column widths
                 sheet['!cols'] = [
                     { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 16 }
                 ];
@@ -1097,7 +1033,6 @@
             document.getElementById('totalAmountInput')?.addEventListener('input', updatePreview);
 
             document.getElementById('executePayBtn')?.addEventListener('click', function() {
-                if (currentRole !== "admin") { alert("Viewer cannot add payments"); return; }
                 const totalAmt = parseFloat(document.getElementById('totalAmountInput').value);
                 if (isNaN(totalAmt) || totalAmt <= 0) { alert("Enter a valid total amount"); return; }
                 if (selectedLoanIds.size === 0) { alert("Select at least one loan"); return; }
@@ -1122,7 +1057,6 @@
                     document.getElementById('totalAmountInput').value = '';
                     document.getElementById('previewContainer').style.display = 'none';
                     document.getElementById('executePayBtn').style.display = 'none';
-                    // re-render
                     const custId = document.getElementById('custSelect').value;
                     if (custId) renderLoansForCustomer(custId);
                     renderAll();
@@ -1134,40 +1068,17 @@
             document.getElementById('downloadReportBtn')?.addEventListener('click', function() {
                 generateExcelReport();
             });
-
-            // password
-            document.getElementById('unlockBtn')?.addEventListener('click', unlockApp);
-            document.getElementById('passwordInput')?.addEventListener('keypress', e => { if (e.key === 'Enter')
-                    unlockApp(); });
         }
 
         // ============================================================
-        // PASSWORD
-        // ============================================================
-        async function unlockApp() {
-            const pwd = document.getElementById('passwordInput').value;
-            if (pwd === '2') { currentRole = "admin";
-                await proceed(); } else if (pwd === '4250') { currentRole = "viewer";
-                await proceed(); } else {
-                document.getElementById('pwdError').innerText = 'Wrong password';
-            }
-        }
-
-        async function proceed() {
-            document.getElementById('passwordModal').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-            document.getElementById('loadingOverlay').classList.remove('hidden');
-            loadData();
-            initEvents();
-        }
-
-        // ============================================================
-        // START
+        // START - No password, direct admin load
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
-            // show password modal by default
-            document.getElementById('passwordModal').style.display = 'flex';
-            document.getElementById('passwordInput').focus();
+            // Force admin role
+            currentRole = "admin";
+            // Load data directly
+            loadData();
+            initEvents();
         });
     </script>
 </body>
