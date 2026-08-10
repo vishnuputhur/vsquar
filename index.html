@@ -167,10 +167,28 @@
             text-align: center;
             margin: 0 2px;
             transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
         }
         .tab.active {
             background: #00b4d8;
             font-weight: bold;
+        }
+        .tab-link {
+            background: #0077b6;
+            color: white;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 0.85em;
+            flex: 1;
+            text-align: center;
+            margin: 0 2px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.2s;
+        }
+        .tab-link:hover {
+            background: #00b4d8;
         }
         .tab-content {
             display: none;
@@ -239,24 +257,6 @@
             color: #dc3545;
             font-weight: bold;
         }
-        .capital-history {
-            max-height: 250px;
-            overflow-y: auto;
-            margin-top: 15px;
-            border-top: 1px solid #ccc;
-            padding-top: 10px;
-        }
-        .capital-entry {
-            background: #f1f9fe;
-            border-radius: 12px;
-            padding: 10px 12px;
-            margin-bottom: 12px;
-            font-size: 0.75em;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            text-align: left;
-        }
         .countdown-modal .modal-content {
             text-align: center;
         }
@@ -276,7 +276,8 @@
             textarea {
                 width: 100%;
             }
-            .tab {
+            .tab,
+            .tab-link {
                 padding: 8px 5px;
                 font-size: 0.75em;
             }
@@ -377,21 +378,6 @@
         .hidden {
             display: none !important;
         }
-        .quick-pay-link {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 10px 20px;
-            background: #2a9d8f;
-            color: #fff;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: bold;
-            font-size: 0.9em;
-            transition: background 0.2s;
-        }
-        .quick-pay-link:hover {
-            background: #1e7a6e;
-        }
     </style>
 </head>
 <body>
@@ -418,16 +404,13 @@
                 <div class="tab" data-tab="customers">Customers</div>
                 <div class="tab" data-tab="loans">Loans</div>
                 <div class="tab" data-tab="transactions">Transactions</div>
-                <!-- Quick Pay Tab: hidden for viewers by JS -->
-                <div class="tab" id="quickPayTab" data-tab="bulkPay" style="background:#2a9d8f;">⚡ Quick Pay</div>
-                <div class="tab" data-tab="capital">Capital</div>
+                <a href="qpay.html" class="tab-link">⚡ Quick Pay</a>
+                <a href="capital.html" class="tab-link">💰 Capital</a>
             </div>
 
             <!-- Dashboard -->
             <div id="dashboard" class="tab-content active">
                 <div class="output" id="dashboardOutput"></div>
-                <!-- Quick Pay Link: shown only for admin -->
-                <a href="qpay.html" id="quickPayLink" class="quick-pay-link" style="display:none;">⚡ Go to Quick Pay (Bulk)</a>
                 <div class="stats-row">
                     <div class="stat-item">👥 Customers: <span id="dashCustomers">0</span></div>
                     <div class="stat-item">🏦 Active Loans: <span id="dashActiveLoans">0</span></div>
@@ -484,42 +467,6 @@
                 <div id="transactionList"></div>
             </div>
 
-            <!-- Bulk Pay (standalone quick pay tab, but hidden for viewers) -->
-            <div id="bulkPay" class="tab-content">
-                <div style="background:#e0f7fa; padding:12px; border-radius:12px; margin-bottom:15px; font-size:0.85em;">
-                    ഒന്നിലധികം ലോണുകൾ ഉള്ള കസ്റ്റമറിൽ നിന്നും ഒന്നിച്ച് പണം ലഭിക്കുമ്പോൾ തനിയെ എല്ലാ ലോണിലേക്കും ഡിവൈഡ് ചെയ്ത് സേവ് ചെയ്യാനുള്ള ടാബ്.
-                </div>
-                <label>Select Customer</label>
-                <select id="bulkCustId"></select>
-                <label>Payment Date</label>
-                <input type="date" id="bulkDate" />
-                <label>Total Amount Received (₹)</label>
-                <input type="number" id="bulkTotalAmount" placeholder="e.g., 2000" />
-                <div id="bulkPreview" style="margin-top:15px; padding:10px; border-radius:8px; font-size:0.85em;"></div>
-                <button id="bulkSubmitBtn" style="display:none; background:#2a9d8f; font-size:1em;">✅ Confirm &amp; Pay All</button>
-            </div>
-
-            <!-- Capital -->
-            <div id="capital" class="tab-content">
-                <div class="output" id="capitalOutput" style="text-align:left"></div>
-                <div class="output" style="margin-top:10px; background:#e6f4ea;">
-                    <p><strong>💰 Total Investment (All time):</strong> <span id="totalInvestment">₹0</span></p>
-                </div>
-                <hr />
-                <div style="background:#e9ecef; padding:12px; border-radius:12px;">
-                    <div><strong>➕ Add Capital (Invest)</strong></div>
-                    <input type="number" id="addCapitalInput" placeholder="Amount to add" />
-                    <button id="addCapitalBtn">Add Capital</button>
-                </div>
-                <div style="background:#e9ecef; padding:12px; border-radius:12px; margin-top:10px;">
-                    <div><strong>🏦 Withdraw Capital</strong></div>
-                    <input type="number" id="withdrawAmountSettings" placeholder="Amount to withdraw" />
-                    <button id="withdrawCapitalSettingsBtn">Withdraw</button>
-                </div>
-                <div><strong>📜 Capital Transaction History</strong></div>
-                <div id="capitalHistoryList" class="capital-history"></div>
-            </div>
-
             <div class="footer">
                 V² · Equal Partners · Cloud Sync
                 <div id="syncStatus" class="sync-status-bottom">🔄 Connecting...</div>
@@ -551,7 +498,6 @@
         let loans = [];
         let transactions = [];
         let cashCapital = 0;
-        let capitalHistory = [];
         let currentRole = "";
         let isInitialLoad = true;
         let isSaving = false;
@@ -622,8 +568,6 @@
             loans.forEach(l => { if (l.status !== 'closed') out += getPrincipalRemaining(l); });
             return out;
         }
-
-        function totalInvested() { return capitalHistory.filter(h => h.type === 'add').reduce((sum, h) => sum + h.amount, 0); }
 
         function getTotalExpectedForLoan(loan) {
             if (loan.method == 4) return (loan.weeklyAmount || 250) * (loan.tenure || 44);
@@ -723,15 +667,13 @@
                         loans = d.loans || [];
                         transactions = d.transactions || [];
                         cashCapital = d.cashCapital || 0;
-                        capitalHistory = d.capitalHistory || [];
                         assignMissingLoanNumbersSync();
                         renderAll();
                         document.getElementById('syncStatus').innerHTML = "☁️ Active";
                         document.getElementById('loadingOverlay').classList.add('hidden');
                         isInitialLoad = false;
                     } else {
-                        const initialData = { customers: [], loans: [], transactions: [], cashCapital: 0,
-                            capitalHistory: [] };
+                        const initialData = { customers: [], loans: [], transactions: [], cashCapital: 0 };
                         db.collection(COLLECTION).doc(DOC_ID).set(initialData)
                             .then(() => {})
                             .catch(err => {
@@ -778,7 +720,6 @@
                     loans,
                     transactions,
                     cashCapital,
-                    capitalHistory,
                     lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 document.getElementById('syncStatus').innerHTML = "✅ Synced";
@@ -978,32 +919,6 @@
             return true;
         }
 
-        function calculateBulkDistribution(custId, totalAmount, dateStr) {
-            const activeLoans = loans.filter(l => l.customerId == custId && l.status === 'active');
-            if (activeLoans.length === 0) return [];
-            let remaining = totalAmount;
-            const distribution = [];
-            for (const loan of activeLoans) {
-                let expected = 0;
-                if (loan.method === 3) expected = loan.emiAmount;
-                else if (loan.method === 4) expected = loan.weeklyAmount;
-                else expected = getAccruedInterestUpToDate(loan, dateStr);
-                if (!expected || expected <= 0) expected = getPrincipalRemaining(loan);
-                let applyAmt = 0;
-                if (remaining >= expected) { applyAmt = expected; } else if (remaining > 0) { applyAmt = remaining; }
-                remaining -= applyAmt;
-                if (applyAmt > 0) {
-                    distribution.push({ loanId: loan.id, loanNumber: loan.loanNumber, amount: applyAmt });
-                }
-            }
-            if (remaining > 0 && distribution.length > 0) {
-                distribution[0].amount += remaining;
-            } else if (remaining > 0 && distribution.length === 0 && activeLoans.length > 0) {
-                distribution.push({ loanId: activeLoans[0].id, loanNumber: activeLoans[0].loanNumber, amount: remaining });
-            }
-            return distribution;
-        }
-
         // ------------------------------------------------------------
         // RENDER FUNCTIONS
         // ------------------------------------------------------------
@@ -1017,8 +932,6 @@
                 `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
             const loanCust = document.getElementById('loanCustomerId');
             if (loanCust && currentRole === "admin") loanCust.innerHTML = dropdownHtml;
-            const bulkCust = document.getElementById('bulkCustId');
-            if (bulkCust && currentRole === "admin") bulkCust.innerHTML = dropdownHtml;
         }
 
         function renderLoans() {
@@ -1118,7 +1031,6 @@
             document.getElementById('dashboardOutput').innerHTML = `
                 <p><strong>💰 Cash on Hand:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
                 <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${outstandingPrincipal.toFixed(2)}</span></p>
-                <p><strong>🏦 Total Invested (Disbursed):</strong> <span>₹${invested.toFixed(2)}</span></p>
                 <p><strong>📈 Approx Profit (incl. accrued):</strong> <span class="profit-green">₹${totalProfitAccurate.toFixed(2)} <span style="font-size:0.75rem;">(+${profitPercentAccurate}%)</span></span></p>
                 <p><strong>✅ Total Profit Earned:</strong> <span class="profit-green">₹${profitEarnedRealised.toFixed(2)}</span></p>
                 <p><strong>👥 Partner's Share (50%):</strong> <span>₹${(profitEarnedRealised/2).toFixed(2)}</span></p>
@@ -1141,49 +1053,17 @@
             }
         }
 
-        function renderCapitalTab() {
-            const initCap = cashCapital - totalInterest();
-            const totalInv = totalInvested();
-            document.getElementById('capitalOutput').innerHTML = `
-                <p><strong>💰 Current Cash:</strong> <span>₹${cashCapital.toFixed(2)}</span></p>
-                <p><strong>📈 Total Interest Earned:</strong> <span>₹${totalInterest().toFixed(2)}</span></p>
-                <p><strong>🏦 Initial Capital (Estimate):</strong> <span>₹${initCap>=0?initCap.toFixed(2):"0.00"}</span></p>
-                <p><strong>📦 Total Disbursed:</strong> <span>₹${totalDisbursed().toFixed(2)}</span></p>
-                <p><strong>📊 Total Outstanding Principal:</strong> <span>₹${totalOutstandingPrincipal().toFixed(2)}</span></p>
-                <p><strong>✅ Principal Recovered:</strong> <span>₹${totalPrincipalRecovered().toFixed(2)}</span></p>
-            `;
-            document.getElementById('totalInvestment').innerHTML = `₹${totalInv.toFixed(2)}`;
-            const historyDiv = document.getElementById('capitalHistoryList');
-            if (historyDiv) {
-                historyDiv.innerHTML = capitalHistory.length ? capitalHistory.map(h =>
-                    `<div class="capital-entry"><span>${formatDateDMY(h.date)} | ${h.type === 'add' ? '➕ Invest' : '🏧 Withdraw'} ₹${h.amount}</span><span class="badge">${new Date(h.timestamp).toLocaleString()}</span></div>`
-                ).join('') : '<div class="text-muted">No capital transactions yet</div>';
-            }
-        }
-
         function renderAll() {
             renderCustomers();
             renderLoans();
             renderTransactions();
             renderDashboard();
-            renderCapitalTab();
-
-            // --- Show/Hide Quick Pay elements based on role ---
-            const quickPayTab = document.getElementById('quickPayTab');
-            const quickPayLink = document.getElementById('quickPayLink');
-            if (currentRole === 'admin') {
-                if (quickPayTab) quickPayTab.style.display = 'block';
-                if (quickPayLink) quickPayLink.style.display = 'inline-block';
-            } else {
-                if (quickPayTab) quickPayTab.style.display = 'none';
-                if (quickPayLink) quickPayLink.style.display = 'none';
-            }
 
             if (currentRole === "viewer") {
                 document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button').forEach(
                 el => {
                     if (!el.classList.contains('tab') && el.id !== 'transactionManagerBtn' && el.id !==
-                        'moreDetailsBtn' && el.id !== 'quickPayLink') el.disabled = true;
+                        'moreDetailsBtn') el.disabled = true;
                 });
             } else {
                 document.querySelectorAll('#mainApp input, #mainApp select, #mainApp textarea, #mainApp button')
@@ -1235,32 +1115,6 @@
                     modalDiv.remove(); } else alert("Failed to close loan");
             };
             modalDiv.querySelector('#closeCancelBtn').onclick = () => modalDiv.remove();
-        }
-
-        function updateBulkPreview() {
-            const custId = document.getElementById('bulkCustId').value;
-            const totalAmt = parseFloat(document.getElementById('bulkTotalAmount').value);
-            const date = document.getElementById('bulkDate').value;
-            const previewDiv = document.getElementById('bulkPreview');
-            const btn = document.getElementById('bulkSubmitBtn');
-            if (!custId || isNaN(totalAmt) || totalAmt <= 0) {
-                previewDiv.innerHTML = '';
-                btn.style.display = 'none';
-                return;
-            }
-            const dist = calculateBulkDistribution(custId, totalAmt, date);
-            if (dist.length === 0) {
-                previewDiv.innerHTML = '<div style="color:red;">No active loans found for this customer.</div>';
-                btn.style.display = 'none';
-                return;
-            }
-            let html = '<strong>📊 Payment Distribution Preview:</strong><br>';
-            dist.forEach(d => {
-                html +=
-                    `<div class="list-item" style="padding:10px; margin-top:8px; background:#fff; border-left:4px solid #2a9d8f;">✅ Loan #${d.loanNumber} : <strong>₹${d.amount.toFixed(2)}</strong></div>`;
-            });
-            previewDiv.innerHTML = html;
-            btn.style.display = 'block';
         }
 
         // ------------------------------------------------------------
@@ -1325,61 +1179,6 @@
                     alert("Payment added!"); } else alert(res.msg);
             });
 
-            document.getElementById('addCapitalBtn')?.addEventListener('click', () => {
-                if (currentRole !== "admin") return;
-                const addAmt = parseFloat(document.getElementById('addCapitalInput').value);
-                if (isNaN(addAmt) || addAmt <= 0) return alert("Valid amount");
-                cashCapital += addAmt;
-                capitalHistory.unshift({ id: Date.now() + Math.random(), type: 'add', amount: addAmt, date: new Date()
-                        .toISOString().slice(0, 10), timestamp: new Date().toISOString(),
-                    remark: 'Manual Addition' });
-                if (capitalHistory.length > 200) capitalHistory.pop();
-                saveAll();
-                document.getElementById('addCapitalInput').value = '';
-                alert(`Added ₹${addAmt}`);
-            });
-
-            document.getElementById('withdrawCapitalSettingsBtn')?.addEventListener('click', () => {
-                if (currentRole !== "admin") return;
-                const amt = parseFloat(document.getElementById('withdrawAmountSettings').value);
-                if (isNaN(amt) || amt <= 0) return alert("Valid amount");
-                if (amt > cashCapital) return alert("Insufficient capital");
-                cashCapital -= amt;
-                capitalHistory.unshift({ id: Date.now() + Math.random(), type: 'withdraw', amount: amt, date: new Date()
-                        .toISOString().slice(0, 10), timestamp: new Date().toISOString(),
-                    remark: 'Manual Withdrawal' });
-                if (capitalHistory.length > 200) capitalHistory.pop();
-                saveAll();
-                document.getElementById('withdrawAmountSettings').value = '';
-                alert(`Withdrew ₹${amt}`);
-            });
-
-            document.getElementById('bulkCustId')?.addEventListener('change', updateBulkPreview);
-            document.getElementById('bulkTotalAmount')?.addEventListener('input', updateBulkPreview);
-            document.getElementById('bulkDate')?.addEventListener('change', updateBulkPreview);
-
-            document.getElementById('bulkSubmitBtn')?.addEventListener('click', () => {
-                if (currentRole !== "admin") return;
-                const custId = document.getElementById('bulkCustId').value;
-                const date = document.getElementById('bulkDate').value;
-                const totalAmt = parseFloat(document.getElementById('bulkTotalAmount').value);
-                if (!custId || !totalAmt || totalAmt <= 0) return alert("Enter valid details");
-                const dist = calculateBulkDistribution(custId, totalAmt, date);
-                if (dist.length === 0) return alert("No active loans or zero amount to distribute.");
-                let successCount = 0;
-                dist.forEach(d => {
-                    const res = addTransaction(d.loanId, date, d.amount, "Bulk Quick-Pay");
-                    if (res.success) successCount++;
-                });
-                if (successCount > 0) {
-                    alert(`Successfully added ${successCount} payments!`);
-                    document.getElementById('bulkTotalAmount').value = '';
-                    document.getElementById('bulkPreview').innerHTML = '';
-                    document.getElementById('bulkSubmitBtn').style.display = 'none';
-                    renderAll();
-                }
-            });
-
             document.getElementById('loanMethod')?.addEventListener('change', (e) => {
                 const method = parseInt(e.target.value);
                 const emiDiv = document.getElementById('emiFields');
@@ -1424,16 +1223,6 @@
             document.getElementById('emiFields').style.display = 'none';
             document.getElementById('loanStartDate').value = new Date().toISOString().slice(0, 10);
             document.getElementById('txnDate').value = new Date().toISOString().slice(0, 10);
-            document.getElementById('bulkDate').value = new Date().toISOString().slice(0, 10);
-
-            // Apply visibility rules for Quick Pay immediately
-            if (currentRole === 'admin') {
-                document.getElementById('quickPayTab').style.display = 'block';
-                document.getElementById('quickPayLink').style.display = 'inline-block';
-            } else {
-                document.getElementById('quickPayTab').style.display = 'none';
-                document.getElementById('quickPayLink').style.display = 'none';
-            }
         }
 
         document.getElementById('unlockBtn')?.addEventListener('click', unlockApp);
