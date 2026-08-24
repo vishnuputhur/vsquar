@@ -94,9 +94,10 @@
   const COLLECTION = "VSQURE";
   const DOC_ID = "appData";
 
-  let customers = [], loans = [], transactions = [], cashCapital = 0;
+  let customers = [], loans = [], transactions = [], capitalHistory = [], cashCapital = 0;
   let currentRole = "viewer";
   let currentLoanId = null;
+  let isDataLoaded = false;
 
   function getRoleFromUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -125,7 +126,9 @@
         customers = d.customers || [];
         loans = d.loans || [];
         transactions = d.transactions || [];
+        capitalHistory = d.capitalHistory || [];
         cashCapital = d.cashCapital || 0;
+        isDataLoaded = true;
       }
       populateLoanSelect();
       showDueAlerts();
@@ -133,7 +136,7 @@
         renderTable();
         updatePaymentFields();
       }
-    } catch(e) { console.error(e); }
+    } catch(e) { console.error("Load error:", e); }
   }
 
   function getCustomer(id) { return customers.find(c => c.id == id); }
@@ -199,6 +202,37 @@
     return 0;
   }
 
+  function updateLoanStatus(loan) {
+    if (!loan) return;
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s, t) => s + t.amount, 0);
+    const totalPrincipalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s, t) => s + (t.principalPortion || 0), 0);
+    
+    if (loan.method === 4) {
+      // Method 4 (Weekly EMI): Stays ACTIVE until all 44 installments (Total Expected Amount) are fully paid
+      const totalExpected = getTotalExpectedForLoan(loan);
+      if (totalPaid >= totalExpected - 0.01) {
+        loan.status = 'closed';
+      } else {
+        loan.status = 'active';
+      }
+    } else if (loan.method === 3) {
+      // Method 3 (Monthly EMI): Checks full EMI expected
+      const totalExpected = getTotalExpectedForLoan(loan);
+      if (totalPaid >= totalExpected - 0.01) {
+        loan.status = 'closed';
+      } else {
+        loan.status = 'active';
+      }
+    } else {
+      // Methods 1 & 2: Closed when principal is settled
+      if (totalPrincipalPaid >= loan.principalAmount - 0.01) {
+        loan.status = 'closed';
+      } else {
+        loan.status = 'active';
+      }
+    }
+  }
+
   function generateSchedule(loan) {
     if(!loan) return [];
     if (loan.method !== 3 && loan.method !== 4) return [];
@@ -250,7 +284,7 @@
         
         if (dueDate >= today && dueDate <= threeDaysLater) {
           alerts.push({
-            loanNumber: loan.loanNumber,
+            loanNumber: loan.loanNumber || loan.id,
             customerName: customerName,
             dueDate: inst.planned,
             dueDateStr: formatDateDMY(inst.planned),
@@ -295,7 +329,7 @@
     const interestBalance = getInterestBalance(loan);
     
     document.getElementById('loanSummary').innerHTML = `
-      <strong>Loan #${loan.loanNumber} - ${cust ? cust.name : 'Unknown'}</strong><br>
+      <strong>Loan #${loan.loanNumber || loan.id} - ${cust ? cust.name : 'Unknown'}</strong><br>
       Principal Balance: ₹${principalOut.toFixed(2)} | 
       Interest Earned: ₹${interestEarned.toFixed(2)} | 
       Interest Balance: ₹${interestBalance.toFixed(2)}<br>
@@ -317,14 +351,12 @@
     tbody.innerHTML = '';
 
     if (isEMIorWeekly && schedule.length > 0) {
-      // Show all schedule rows, but only show balance for paid ones
       let cumulativePrincipal = 0;
       
       for (let idx = 0; idx < schedule.length; idx++) {
         const tr = tbody.insertRow();
         const matched = (idx < loanTxns.length) ? loanTxns[idx] : null;
         const plannedDate = schedule[idx].planned;
-        const isPaid = matched !== null;
         
         tr.insertCell(0).innerText = idx + 1;
         tr.insertCell(1).innerText = formatDateDMY(plannedDate);
@@ -418,7 +450,6 @@
   function populateLoanSelect() {
     const select = document.getElementById('loanSelect');
     select.innerHTML = '<option value="">-- Choose Loan --</option>';
-    // Sort: active first, then closed
     const sortedLoans = [...loans].sort((a,b) => {
       if (a.status === 'closed' && b.status !== 'closed') return 1;
       if (a.status !== 'closed' && b.status === 'closed') return -1;
@@ -428,7 +459,7 @@
       const c = getCustomer(l.customerId);
       const principalOut = getPrincipalOutstanding(l);
       const statusText = l.status === 'closed' ? ' [CLOSED]' : '';
-      const optionText = `#${l.loanNumber} - ${c ? c.name : 'N/A'}${statusText} | Balance: ₹${principalOut.toFixed(2)}`;
+      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Balance: ₹${principalOut.toFixed(2)}`;
       const opt = document.createElement('option');
       opt.value = l.id;
       opt.textContent = optionText;
@@ -496,7 +527,7 @@
       }
       
       const newTxn = {
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         loanId: loan.id,
         date: isoDate,
         amount: total,
@@ -508,9 +539,7 @@
       transactions.push(newTxn);
       cashCapital += total;
       
-      const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
-      if(totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
-      else loan.status = 'active';
+      updateLoanStatus(loan);
       
       await saveToCloud();
       await loadData();
@@ -574,7 +603,7 @@
     }
     
     const newTxn = {
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       loanId: loan.id,
       date: isoDate,
       amount: amount,
@@ -586,9 +615,7 @@
     transactions.push(newTxn);
     cashCapital += amount;
     
-    const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
-    if(totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
-    else loan.status = 'active';
+    updateLoanStatus(loan);
     
     await saveToCloud();
     await loadData();
@@ -614,9 +641,7 @@
       transactions.splice(idx, 1);
       const loan = getLoan(currentLoanId);
       if(loan) {
-        const totalPaidPrincipal = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + (t.principalPortion || 0), 0);
-        if(totalPaidPrincipal >= loan.principalAmount - 0.01) loan.status = 'closed';
-        else loan.status = 'active';
+        updateLoanStatus(loan);
       }
       await saveToCloud();
       await loadData();
@@ -625,9 +650,23 @@
 
   async function saveToCloud() {
     if(currentRole !== 'admin') return;
-    await db.collection(COLLECTION).doc(DOC_ID).set({
-      customers, loans, transactions, cashCapital, lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    if(!isDataLoaded) {
+      console.warn("Blocked save: Data not loaded yet.");
+      return;
+    }
+    try {
+      await db.collection(COLLECTION).doc(DOC_ID).set({
+        customers, 
+        loans, 
+        transactions, 
+        capitalHistory, 
+        cashCapital, 
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    } catch(err) {
+      console.error("Save error:", err);
+      alert("Error saving transaction! Please check your network connection.");
+    }
   }
 
   document.getElementById('addPaymentBtn').onclick = async () => {
@@ -662,7 +701,6 @@
     }
   };
 
-  // PDF Export with border, remark column, and red color for late payments
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -675,42 +713,38 @@
     const customerName = cust ? cust.name : "Vsquar";
     const today = new Date();
     const dateStr = formatDateDMY(today.toISOString().slice(0,10));
-    const fileName = `Loan_${loan.loanNumber}_${customerName}_${dateStr}.pdf`;
+    const fileName = `Loan_${loan.loanNumber || loan.id}_${customerName}_${dateStr}.pdf`;
     const principalOut = getPrincipalOutstanding(loan);
     const interestBalance = getInterestBalance(loan);
     
-    // Set page margin: 10mm from all edges
     const margin = 10;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const contentWidth = pageWidth - (margin * 2);
     
-    // Draw border box (1mm line, 10mm from edges)
     doc.setLineWidth(0.5);
     doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
     
     doc.setFontSize(18);
-    doc.text(`Payment Receipt - Loan #${loan.loanNumber}`, margin + 5, margin + 15);
+    doc.text(`Payment Receipt - Loan #${loan.loanNumber || loan.id}`, margin + 5, margin + 15);
     doc.setFontSize(12);
     doc.text(`Customer: ${customerName}`, margin + 5, margin + 25);
     doc.setFontSize(10);
-    doc.text(`Principal Balance: ${principalOut.toFixed(2)}`, margin + 5, margin + 33);
-    doc.text(`Interest Balance: ${interestBalance.toFixed(2)}`, margin + 5, margin + 40);
-    if (principalOut <= 0.01) {
+    doc.text(`Principal Balance: ₹${principalOut.toFixed(2)}`, margin + 5, margin + 33);
+    doc.text(`Interest Balance: ₹${interestBalance.toFixed(2)}`, margin + 5, margin + 40);
+    if (loan.status === 'closed') {
       doc.text("Loan Closed", margin + 5, margin + 47);
       doc.text(`Generated on: ${today.toLocaleString()}`, margin + 5, margin + 54);
     } else {
       doc.text(`Generated on: ${today.toLocaleString()}`, margin + 5, margin + 47);
     }
     
-    // Build table rows with data
     const rows = [];
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
     const tableRows = document.querySelectorAll('#tableBody tr');
     
     for (let tr of tableRows) {
-      const rowData = [];
       const cells = tr.querySelectorAll('td');
+      const rowData = [];
       for (let i = 0; i < cells.length; i++) {
         if (i === 1 && !isEMIorWeekly) continue;
         if (i === cells.length - 1) continue;
@@ -732,7 +766,7 @@
       headers = ['#', 'Planned', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Principal Bal', 'Remark'];
     }
     
-    let startY = principalOut <= 0.01 ? 60 : 53;
+    let startY = loan.status === 'closed' ? 60 : 53;
     
     doc.autoTable({
       startY: startY,
