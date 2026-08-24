@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>V² · Complete Backup & Restore</title>
+  
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #0077b6;
+      --accent: #00b4d8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 16px; }
+    .container { max-width: 600px; margin: 20px auto; background: var(--card-bg); padding: 24px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+    h1 { font-size: 1.4rem; color: var(--primary); text-align: center; margin-bottom: 6px; }
+    .subhead { font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-bottom: 20px; }
+    
+    .section-card { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .section-title { font-weight: 700; font-size: 0.95rem; color: var(--primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    p { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4; }
+
+    .btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-size: 0.9rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s; }
+    .btn:active { opacity: 0.8; }
+    .btn-download { background: var(--success); color: white; }
+    .btn-restore { background: var(--primary); color: white; margin-top: 10px; }
+    .btn-restore:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .btn-back { background: transparent; color: var(--primary); border: 1px solid var(--primary); width: auto; padding: 6px 14px; font-size: 0.8rem; margin-bottom: 14px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: 600; }
+
+    input[type="file"] { width: 100%; padding: 10px; border: 2px dashed #90e0ef; border-radius: 10px; background: #ffffff; font-size: 0.82rem; }
+
+    #logBox { margin-top: 16px; background: #e0f2fe; padding: 12px; border-radius: 10px; font-size: 0.78rem; max-height: 200px; overflow-y: auto; display: none; line-height: 1.5; color: #0369a1; }
+    .stat-badge { display: inline-block; background: #e2e8f0; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <a href="index.html" class="btn-back">← Back to Dashboard</a>
+    <h1>🛡️ V² Master Cloud Sync</h1>
+    <div class="subhead">Complete Raw Database Backup & Instant Restore Utility</div>
+
+    <!-- 1. BACKUP SECTION -->
+    <div class="section-card">
+      <div class="section-title">📥 1. Create Full Backup</div>
+      <p>Downloads entire Firebase data including Customers (Phone, Address), Loans, Split Payments, Capital History, and Cash Balance into a structured JSON file.</p>
+      <button id="downloadBackupBtn" class="btn btn-download">💾 Download Complete Backup</button>
+    </div>
+
+    <!-- 2. RESTORE SECTION -->
+    <div class="section-card">
+      <div class="section-title">🔄 2. Restore From File</div>
+      <p>Upload a previously downloaded <code>V2_Full_Backup.json</code> file to completely restore all database collections back into Firebase.</p>
+      
+      <input type="file" id="backupFileInput" accept=".json" />
+      <button id="restoreBackupBtn" class="btn btn-restore" disabled>⚠️ Restore to Cloud Database</button>
+    </div>
+
+    <div id="logBox"></div>
+  </div>
+
+  <script>
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCCjWVI1hB3sbu0JiA4viW1BK81xbMML-U",
+      authDomain: "csl-calculations.firebaseapp.com",
+      projectId: "csl-calculations",
+      storageBucket: "csl-calculations.firebasestorage.app",
+      messagingSenderId: "887219643486",
+      appId: "1:887219643486:web:0cb001f2c72039a00240cf"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const COLLECTION = "VSQURE";
+    const DOC_ID = "appData";
+
+    let parsedBackupData = null;
+
+    function log(msg) {
+      const box = document.getElementById('logBox');
+      box.style.display = 'block';
+      box.innerHTML += `<div>${msg}</div>`;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // Format local date-time string for file naming
+    function getFormattedTimestamp() {
+      const now = new Date();
+      const yr = now.getFullYear();
+      const mo = String(now.getMonth() + 1).padStart(2, '0');
+      const da = String(now.getDate()).padStart(2, '0');
+      const hr = String(now.getHours()).padStart(2, '0');
+      const mi = String(now.getMinutes()).padStart(2, '0');
+      return `${yr}-${mo}-${da}_${hr}-${mi}`;
+    }
+
+    // ==========================================
+    // BACKUP ACTION
+    // ==========================================
+    document.getElementById('downloadBackupBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('downloadBackupBtn');
+      btn.disabled = true;
+      btn.innerText = "⏳ Reading Database...";
+
+      try {
+        const doc = await db.collection(COLLECTION).doc(DOC_ID).get();
+        if (!doc.exists) {
+          alert("No data found in Firebase database!");
+          btn.disabled = false;
+          btn.innerText = "💾 Download Complete Backup";
+          return;
+        }
+
+        const data = doc.data();
+        const exportPayload = {
+          metadata: {
+            appName: "VSquar Finance Manager",
+            exportDate: new Date().toISOString(),
+            version: "2.0"
+          },
+          customers: data.customers || [],
+          loans: data.loans || [],
+          transactions: data.transactions || [],
+          capitalHistory: data.capitalHistory || [],
+          cashCapital: data.cashCapital || 0
+        };
+
+        const jsonString = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportPayload, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", jsonString);
+        
+        // Suggested subfolder filename
+        const fileName = `VSquare_Backup_V2_Full_Backup_${getFormattedTimestamp()}.json`;
+        dlAnchor.setAttribute("download", fileName);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+
+        btn.innerText = "✅ Backup Downloaded!";
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerText = "💾 Download Complete Backup";
+        }, 2500);
+
+      } catch (err) {
+        console.error("Backup failed:", err);
+        alert("Backup failed: " + err.message);
+        btn.disabled = false;
+        btn.innerText = "💾 Download Complete Backup";
+      }
+    });
+
+    // ==========================================
+    // RESTORE ACTION
+    // ==========================================
+    document.getElementById('backupFileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          parsedBackupData = JSON.parse(evt.target.result);
+          
+          const custCount = parsedBackupData.customers ? parsedBackupData.customers.length : 0;
+          const loanCount = parsedBackupData.loans ? parsedBackupData.loans.length : 0;
+          const txnCount = parsedBackupData.transactions ? parsedBackupData.transactions.length : 0;
+          const capCount = parsedBackupData.capitalHistory ? parsedBackupData.capitalHistory.length : 0;
+
+          log(`✅ File verified! Found: <strong>${custCount} Customers</strong>, <strong>${loanCount} Loans</strong>, <strong>${txnCount} Payments</strong>, <strong>${capCount} Capital Entries</strong>.`);
+          document.getElementById('restoreBackupBtn').disabled = false;
+        } catch (err) {
+          log(`<span style="color:red;">❌ Invalid Backup JSON File!</span>`);
+          document.getElementById('restoreBackupBtn').disabled = true;
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('restoreBackupBtn').addEventListener('click', async () => {
+      if (!parsedBackupData) return;
+
+      const conf = confirm("⚠️ WARNING: This will replace the entire current database in Firebase with the uploaded backup file.\n\nDo you want to proceed?");
+      if (!conf) return;
+
+      const btn = document.getElementById('restoreBackupBtn');
+      btn.disabled = true;
+      btn.innerText = "⏳ Uploading to Cloud...";
+      log("☁️ Synchronizing with Firestore (`VSQURE/appData`)...");
+
+      try {
+        await db.collection(COLLECTION).doc(DOC_ID).set({
+          customers: parsedBackupData.customers || [],
+          loans: parsedBackupData.loans || [],
+          transactions: parsedBackupData.transactions || [],
+          capitalHistory: parsedBackupData.capitalHistory || [],
+          cashCapital: parsedBackupData.cashCapital || 0,
+          lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        log("🎉 <strong style='color:#10b981;'>ALL DATA RESTORED 100% SUCCESSFULLY!</strong>");
+        alert("Restore completed successfully! You can now return to the Dashboard.");
+        btn.innerText = "✅ Restored Successfully";
+      } catch (err) {
+        console.error("Restore failed:", err);
+        log(`<span style="color:red;">❌ Restore Error: ${err.message}</span>`);
+        btn.disabled = false;
+        btn.innerText = "⚠️ Restore to Cloud Database";
+      }
+    });
+  </script>
+</body>
+</html>
