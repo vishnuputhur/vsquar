@@ -10,30 +10,37 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
-    .container { max-width: 100%; width: 85%; margin: 20px auto; background: #fff; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    h1 { text-align: center; color: #0077b6; font-size: 1.7em; margin-top: 0; }
-    label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; }
-    input, select { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9em; }
-    .loan-select-wrapper { margin: 10px 0; width: 100%; }
-    #loanSelect { width: 100%; min-width: 60mm; padding: 10px; font-size: 0.9em; }
-    .output { background: #e0f7fa; padding: 10px; margin-top: 15px; border-radius: 8px; text-align: center; font-size: 0.85em; }
-    button { margin-top: 15px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.85em; }
-    button.small-btn { width: auto; padding: 5px 10px; margin: 0 3px; display: inline-block; font-size: 0.7em; }
-    button.danger { background: #dc3545; }
-    button.warning { background: #f4a261; }
-    button.success { background: #2a9d8f; }
-    .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.75em; overflow-x: auto; display: block; }
-    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
-    th { background: #90e0ef; }
-    .text-muted { color: #666; font-size: 0.7em; }
-    .footer { text-align: center; margin-top: 20px; background: #0077b6; color: #fff; padding: 10px; font-size: 0.75em; border-radius: 8px; }
-    @media (max-width: 600px) { .container { width: 90%; padding: 10px; } #loanSelect { width: 100%; } }
-    .role-badge { text-align: right; font-size: 0.7rem; margin-bottom: 10px; color: #0077b6; }
-    .payment-panel { background: #f8f9fa; border-radius: 12px; padding: 12px; margin-bottom: 20px; }
-    .due-alert-row { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .section-title { font-weight: bold; margin: 15px 0 8px 0; color: #0077b6; font-size: 0.9rem; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
+    .container { max-width: 100%; width: 88%; margin: 20px auto; background: #fff; padding: 18px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    h1 { text-align: center; color: #0077b6; font-size: 1.6em; margin: 0; }
+    label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; color: #555; }
+    input, select { width: 100%; padding: 9px 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9em; background: #fff; }
+    input[type="date"] { cursor: pointer; }
+    .loan-select-wrapper { margin: 12px 0 8px 0; width: 100%; }
+    #loanSelect { width: 100%; padding: 10px; font-size: 0.9em; font-weight: bold; }
+    
+    .output-box { background: #e0f7fa; padding: 14px; margin-top: 10px; border-radius: 12px; font-size: 0.85em; line-height: 1.6; border: 1px solid #b2ebf2; }
+    .output-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 6px; }
+    .output-item { background: #ffffff; padding: 8px 10px; border-radius: 8px; border: 1px solid #cce5ff; }
+    .output-item .val { font-weight: bold; color: #0077b6; }
+    
+    button { margin-top: 12px; padding: 11px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.9em; }
+    button:active { background: #0077b6; }
+    button.small-btn { width: auto; padding: 6px 14px; margin: 0; display: inline-block; font-size: 0.8em; }
+    button.danger { background: #fee2e2; color: #dc3545; border: 1px solid #fca5a5; }
+    button.success { background: #2a9d8f; color: #fff; }
+    .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    
+    table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 0.8em; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center; }
+    th { background: #90e0ef; color: #0077b6; font-weight: 700; }
+    .text-muted { color: #666; font-size: 0.75em; }
+    .footer { text-align: center; margin-top: 25px; background: #0077b6; color: #fff; padding: 10px; font-size: 0.75em; border-radius: 8px; }
+    @media (max-width: 600px) { .container { width: 95%; padding: 12px; } }
+    .role-badge { text-align: right; font-size: 0.72rem; margin-bottom: 6px; color: #0077b6; font-weight: bold; }
+    .payment-panel { background: #f8f9fa; border-radius: 12px; padding: 14px; margin: 15px 0; border: 1px solid #e2e8f0; }
+    .due-alert-row { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .section-title { font-weight: bold; margin: 12px 0 6px 0; color: #0077b6; font-size: 0.88rem; }
     .paid-late { color: #dc3545; font-weight: bold; }
   </style>
 </head>
@@ -42,41 +49,38 @@
   <div class="role-badge" id="roleBadge"></div>
   <div class="flex-row">
     <h1>Vsquar · Transaction Manager</h1>
+    <button id="downloadPdfBtn" class="small-btn success">📄 Save Loan Statement</button>
   </div>
   
   <div class="loan-select-wrapper">
     <select id="loanSelect"></select>
   </div>
   
-  <div class="flex-row">
-    <button id="refreshBtn" class="small-btn">⟳ Sync</button>
-    <button id="downloadPdfBtn" class="small-btn success">📎 Save PDF</button>
-    <button id="homeBtn" class="small-btn" style="background:#6c757d;">🏠 Home</button>
-  </div>
-  
   <!-- Due Alerts Section -->
-  <div id="dueAlertsSection" style="display:none; margin-bottom: 15px;">
+  <div id="dueAlertsSection" style="display:none; margin-bottom: 12px;">
     <div class="section-title">📅 Upcoming Due Alerts (Next 3 days)</div>
     <div id="dueAlertsContainer"></div>
   </div>
   
-  <div id="loanSummary" class="output" style="margin-top:5px;">Select a loan to view details</div>
+  <!-- Detailed Loan Summary Box -->
+  <div id="loanSummary" class="output-box">Select a loan to view details</div>
   
-  <div id="adminAddBtn" style="display:none; margin:10px 0;">
+  <!-- Add Payment Panel (Admin Only) -->
+  <div id="adminAddBtn" style="display:none;">
     <div class="payment-panel" id="paymentPanel">
-      <h4>➕ Add Payment</h4>
+      <h4 style="margin:0 0 10px 0; color:#0077b6;">➕ Add New Payment</h4>
       <div id="paymentFields"></div>
-      <button id="addPaymentBtn" class="success">Confirm Payment</button>
+      <button id="addPaymentBtn" class="success">Confirm &amp; Record Payment</button>
     </div>
   </div>
   
   <div style="overflow-x: auto;">
     <table id="transactionTable" style="display:none;">
-      <thead><tr><th>#</th><th id="plannedDateHeader">Planned Date</th><th>DuePaid Date</th><th>Amount (₹)</th><th>Interest (₹)</th><th>Principal (₹)</th><th>Principal Balance (₹)</th><th>Remark</th><th class="action-col">Actions</th></tr></thead>
+      <thead id="tableHeader"></thead>
       <tbody id="tableBody"></tbody>
     </table>
   </div>
-  <div id="noDataMsg" class="text-muted" style="text-align:center; padding:20px;">No loan data found.</div>
+  <div id="noDataMsg" class="text-muted" style="text-align:center; padding:25px;">No loan data found.</div>
   <div class="footer">Vsquar · Equal Partners</div>
 </div>
 
@@ -106,16 +110,28 @@
 
   function formatDateDMY(dateStr) {
     if (!dateStr) return '';
-    let parts = dateStr.split('-');
+    let clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+    let parts = clean.split('-');
     if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
     return dateStr;
   }
 
-  function convertToYMD(dateStr) {
-    if (!dateStr) return '';
-    let parts = dateStr.split('-');
-    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    return dateStr;
+  function getDaysPassed(startDateStr) {
+    if (!startDateStr) return 0;
+    const start = new Date(startDateStr);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    start.setHours(0,0,0,0);
+    const diff = Math.floor((today - start) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+  }
+
+  function getSchemeName(method, loan) {
+    if (method === 1) return "Monthly Interest Only";
+    if (method === 2) return "Flexible (Interest first)";
+    if (method === 3) return `Monthly EMI (₹${loan.emiAmount || 0} × ${loan.tenure || 1} M)`;
+    if (method === 4) return `44 Weeks Scheme (₹${loan.weeklyAmount || 250}/Wk)`;
+    return "Standard Loan";
   }
 
   async function loadData() {
@@ -196,8 +212,7 @@
       const totalExpected = getTotalExpectedForLoan(loan);
       const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
       const principalOut = getPrincipalOutstanding(loan);
-      const remainingInterest = Math.max(0, totalExpected - totalPaid - principalOut);
-      return remainingInterest;
+      return Math.max(0, totalExpected - totalPaid - principalOut);
     }
     return 0;
   }
@@ -207,35 +222,16 @@
     const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s, t) => s + t.amount, 0);
     const totalPrincipalPaid = transactions.filter(t => t.loanId == loan.id).reduce((s, t) => s + (t.principalPortion || 0), 0);
     
-    if (loan.method === 4) {
-      // Method 4 (Weekly EMI): Stays ACTIVE until all 44 installments (Total Expected Amount) are fully paid
+    if (loan.method === 4 || loan.method === 3) {
       const totalExpected = getTotalExpectedForLoan(loan);
-      if (totalPaid >= totalExpected - 0.01) {
-        loan.status = 'closed';
-      } else {
-        loan.status = 'active';
-      }
-    } else if (loan.method === 3) {
-      // Method 3 (Monthly EMI): Checks full EMI expected
-      const totalExpected = getTotalExpectedForLoan(loan);
-      if (totalPaid >= totalExpected - 0.01) {
-        loan.status = 'closed';
-      } else {
-        loan.status = 'active';
-      }
+      loan.status = (totalPaid >= totalExpected - 0.01) ? 'closed' : 'active';
     } else {
-      // Methods 1 & 2: Closed when principal is settled
-      if (totalPrincipalPaid >= loan.principalAmount - 0.01) {
-        loan.status = 'closed';
-      } else {
-        loan.status = 'active';
-      }
+      loan.status = (totalPrincipalPaid >= loan.principalAmount - 0.01) ? 'closed' : 'active';
     }
   }
 
   function generateSchedule(loan) {
-    if(!loan) return [];
-    if (loan.method !== 3 && loan.method !== 4) return [];
+    if(!loan || (loan.method !== 3 && loan.method !== 4)) return [];
     const startDate = new Date(loan.startDate);
     let schedule = [];
     if(loan.method == 3) {
@@ -265,22 +261,18 @@
     threeDaysLater.setDate(today.getDate() + 3);
     
     const alerts = [];
-    
     loans.forEach(loan => {
-      if (loan.status === 'closed') return;
-      if (loan.method !== 3 && loan.method !== 4) return;
+      if (loan.status === 'closed' || (loan.method !== 3 && loan.method !== 4)) return;
       
       const schedule = generateSchedule(loan);
       const cust = getCustomer(loan.customerId);
       const customerName = cust ? cust.name : 'Unknown';
-      const loanTxns = transactions.filter(t => t.loanId == loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
+      const loanTxns = transactions.filter(t => t.loanId == loan.id);
       
       for (let i = 0; i < schedule.length; i++) {
         const inst = schedule[i];
         const dueDate = new Date(inst.planned);
-        
-        const isPaid = i < loanTxns.length;
-        if (isPaid) continue;
+        if (i < loanTxns.length) continue;
         
         if (dueDate >= today && dueDate <= threeDaysLater) {
           alerts.push({
@@ -296,7 +288,6 @@
     });
     
     alerts.sort((a,b) => new Date(a.dueDate) - new Date(b.dueDate));
-    
     if (alerts.length > 0) {
       alertsSection.style.display = 'block';
       alertsContainer.innerHTML = alerts.map(a => `
@@ -304,7 +295,7 @@
           <span><strong>Loan #${a.loanNumber}</strong> - ${a.customerName}</span>
           <span>Due: ${a.dueDateStr}</span>
           <span>Amount: ₹${a.amount}</span>
-          <span>Installment #${a.installmentNum}</span>
+          <span>Inst #${a.installmentNum}</span>
         </div>
       `).join('');
     } else {
@@ -317,6 +308,7 @@
     if(!loan) {
       document.getElementById('transactionTable').style.display = 'none';
       document.getElementById('noDataMsg').style.display = 'block';
+      document.getElementById('loanSummary').innerHTML = 'Select a loan to view details';
       return;
     }
 
@@ -327,32 +319,64 @@
     const principalOut = getPrincipalOutstanding(loan);
     const interestEarned = getInterestEarned(loan);
     const interestBalance = getInterestBalance(loan);
-    
+    const daysPassed = getDaysPassed(loan.startDate);
+    const schemeName = getSchemeName(loan.method, loan);
+    const totalCollected = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
+
+    // Detailed Loan Info Card
     document.getElementById('loanSummary').innerHTML = `
-      <strong>Loan #${loan.loanNumber || loan.id} - ${cust ? cust.name : 'Unknown'}</strong><br>
-      Principal Balance: ₹${principalOut.toFixed(2)} | 
-      Interest Earned: ₹${interestEarned.toFixed(2)} | 
-      Interest Balance: ₹${interestBalance.toFixed(2)}<br>
-      Status: ${loan.status.toUpperCase()}
+      <div style="font-size:1.05rem; font-weight:800; color:#0077b6; margin-bottom:4px;">
+        Loan #${loan.loanNumber || loan.id} — ${cust ? cust.name : 'Unknown'} ${cust && cust.phone ? `(${cust.phone})` : ''}
+      </div>
+      <div class="output-grid">
+        <div class="output-item">💵 Principal Amount: <span class="val">₹${loan.principalAmount}</span></div>
+        <div class="output-item">📑 Scheme: <span class="val">${schemeName}</span></div>
+        <div class="output-item">📅 Loan Open: <span class="val">${formatDateDMY(loan.startDate)} (${daysPassed} days)</span></div>
+        <div class="output-item">📈 Rate: <span class="val">${loan.interestRate || 0}% Monthly</span></div>
+        <div class="output-item">📌 Principal Balance: <span class="val">₹${principalOut.toFixed(2)}</span></div>
+        <div class="output-item">💰 Interest Earned: <span class="val">₹${interestEarned.toFixed(2)}</span></div>
+        <div class="output-item">⏳ Interest Balance: <span class="val">₹${interestBalance.toFixed(2)}</span></div>
+        <div class="output-item">✅ Total Collected: <span class="val">₹${totalCollected.toFixed(2)}</span></div>
+        <div class="output-item">⚡ Status: <span class="val" style="${loan.status==='closed'?'color:#dc3545;':'color:#2a9d8f;'}">${loan.status.toUpperCase()}</span></div>
+      </div>
     `;
 
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
-    const plannedHeader = document.getElementById('plannedDateHeader');
-    
+    const thead = document.getElementById('tableHeader');
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    // Render Dynamic Table Header strictly according to Scheme
     if (isEMIorWeekly) {
-      plannedHeader.style.display = 'table-cell';
+      thead.innerHTML = `<tr>
+        <th>#</th>
+        <th>Planned Date</th>
+        <th>Paid Date</th>
+        <th>Amount (₹)</th>
+        <th>Interest (₹)</th>
+        <th>Principal (₹)</th>
+        <th>Principal Balance (₹)</th>
+        <th>Remark</th>
+        ${currentRole === 'admin' ? '<th class="action-col">Actions</th>' : ''}
+      </tr>`;
     } else {
-      plannedHeader.style.display = 'none';
+      thead.innerHTML = `<tr>
+        <th>#</th>
+        <th>Paid Date</th>
+        <th>Amount (₹)</th>
+        <th>Interest (₹)</th>
+        <th>Principal (₹)</th>
+        <th>Principal Balance (₹)</th>
+        <th>Remark</th>
+        ${currentRole === 'admin' ? '<th class="action-col">Actions</th>' : ''}
+      </tr>`;
     }
 
     const schedule = generateSchedule(loan);
     const loanTxns = transactions.filter(t => t.loanId == loan.id).sort((a,b) => new Date(a.date) - new Date(b.date));
-    const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '';
 
     if (isEMIorWeekly && schedule.length > 0) {
       let cumulativePrincipal = 0;
-      
       for (let idx = 0; idx < schedule.length; idx++) {
         const tr = tbody.insertRow();
         const matched = (idx < loanTxns.length) ? loanTxns[idx] : null;
@@ -382,40 +406,34 @@
           tr.insertCell(7).innerText = "—";
         }
         
-        const actionCell = tr.insertCell(8);
         if(currentRole === 'admin') {
+          const actionCell = tr.insertCell(8);
           if(matched) {
-            actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑</button>`;
+            actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑 Delete</button>`;
           } else {
             actionCell.innerHTML = `<button class="small-btn success" onclick="payPlanned('${plannedDate}', ${schedule[idx].expected})">+ Pay</button>`;
           }
-        } else {
-          actionCell.innerHTML = "";
         }
       }
     } 
     else {
       let cumulativePrincipal = 0;
-      
       loanTxns.forEach((txn, idx) => {
         const tr = tbody.insertRow();
         cumulativePrincipal += (txn.principalPortion || 0);
         const remainingPrincipal = Math.max(0, loan.principalAmount - cumulativePrincipal);
         
         tr.insertCell(0).innerText = idx + 1;
-        tr.insertCell(1).innerText = "—";
-        tr.insertCell(2).innerText = formatDateDMY(txn.date);
-        tr.insertCell(3).innerText = `₹${txn.amount}`;
-        tr.insertCell(4).innerText = `₹${txn.interestPortion || 0}`;
-        tr.insertCell(5).innerText = `₹${txn.principalPortion || 0}`;
-        tr.insertCell(6).innerText = `₹${remainingPrincipal.toFixed(2)}`;
-        tr.insertCell(7).innerText = txn.remark || "";
+        tr.insertCell(1).innerText = formatDateDMY(txn.date);
+        tr.insertCell(2).innerText = `₹${txn.amount}`;
+        tr.insertCell(3).innerText = `₹${txn.interestPortion || 0}`;
+        tr.insertCell(4).innerText = `₹${txn.principalPortion || 0}`;
+        tr.insertCell(5).innerText = `₹${remainingPrincipal.toFixed(2)}`;
+        tr.insertCell(6).innerText = txn.remark || "";
         
-        const actionCell = tr.insertCell(8);
         if(currentRole === 'admin') {
-          actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${txn.id})">🗑</button>`;
-        } else {
-          actionCell.innerHTML = "";
+          const actionCell = tr.insertCell(7);
+          actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${txn.id})">🗑 Delete</button>`;
         }
       });
       
@@ -426,30 +444,16 @@
         tr.insertCell(2).innerText = "—";
         tr.insertCell(3).innerText = "—";
         tr.insertCell(4).innerText = "—";
-        tr.insertCell(5).innerText = "—";
-        tr.insertCell(6).innerText = `₹${loan.principalAmount.toFixed(2)}`;
-        tr.insertCell(7).innerText = "—";
-        const actionCell = tr.insertCell(8);
-        actionCell.innerHTML = "";
+        tr.insertCell(5).innerText = `₹${loan.principalAmount.toFixed(2)}`;
+        tr.insertCell(6).innerText = "No transactions recorded yet";
+        if (currentRole === 'admin') tr.insertCell(7).innerText = "";
       }
-    }
-
-    if(currentRole !== 'admin') {
-      const actionHeaders = document.querySelectorAll('.action-col');
-      actionHeaders.forEach(el => el.style.display = 'none');
-      const rows = tbody.rows;
-      for(let i=0; i<rows.length; i++) {
-        if(rows[i].cells.length > 8) rows[i].deleteCell(8);
-      }
-    } else {
-      const actionHeaders = document.querySelectorAll('.action-col');
-      actionHeaders.forEach(el => el.style.display = 'table-cell');
     }
   }
 
   function populateLoanSelect() {
     const select = document.getElementById('loanSelect');
-    select.innerHTML = '<option value="">-- Choose Loan --</option>';
+    select.innerHTML = '<option value="">-- Choose Loan Account --</option>';
     const sortedLoans = [...loans].sort((a,b) => {
       if (a.status === 'closed' && b.status !== 'closed') return 1;
       if (a.status !== 'closed' && b.status === 'closed') return -1;
@@ -459,7 +463,7 @@
       const c = getCustomer(l.customerId);
       const principalOut = getPrincipalOutstanding(l);
       const statusText = l.status === 'closed' ? ' [CLOSED]' : '';
-      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Balance: ₹${principalOut.toFixed(2)}`;
+      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Bal: ₹${principalOut.toFixed(2)}`;
       const opt = document.createElement('option');
       opt.value = l.id;
       opt.textContent = optionText;
@@ -482,39 +486,37 @@
       return;
     }
     
+    const todayISO = new Date().toISOString().slice(0, 10);
+    
     if(loan.method === 1) {
       container.innerHTML = `
         <label>Interest Portion (₹)</label>
         <input type="number" id="interestPortion" placeholder="Interest amount" step="any" value="0">
         <label>Principal Portion (₹)</label>
         <input type="number" id="principalPortion" placeholder="Principal amount" step="any" value="0">
-        <label>Date (DD-MM-YYYY)</label>
-        <input type="text" id="paymentDate" placeholder="DD-MM-YYYY" value="${formatDateDMY(new Date().toISOString().slice(0,10))}">
-        <label>Remark</label>
-        <input type="text" id="paymentRemark" placeholder="Optional">
-        <small class="text-muted">Total amount = Interest + Principal</small>
+        <label>Payment Date</label>
+        <input type="date" id="paymentDate" value="${todayISO}">
+        <label>Remark / Note</label>
+        <input type="text" id="paymentRemark" placeholder="Optional remark">
+        <small class="text-muted">Total payment = Interest + Principal</small>
       `;
     } else {
       container.innerHTML = `
-        <label>Amount (₹)</label>
+        <label>Payment Amount (₹)</label>
         <input type="number" id="paymentAmount" placeholder="Enter amount" step="any">
-        <label>Date (DD-MM-YYYY)</label>
-        <input type="text" id="paymentDate" placeholder="DD-MM-YYYY" value="${formatDateDMY(new Date().toISOString().slice(0,10))}">
-        <label>Remark</label>
-        <input type="text" id="paymentRemark" placeholder="Optional">
+        <label>Payment Date</label>
+        <input type="date" id="paymentDate" value="${todayISO}">
+        <label>Remark / Note</label>
+        <input type="text" id="paymentRemark" placeholder="Optional remark">
       `;
     }
   }
 
-  async function processPayment(loanId, date, amount, interestPortion, principalPortion, remark) {
+  async function processPayment(loanId, isoDate, amount, interestPortion, principalPortion, remark) {
     const loan = getLoan(loanId);
     if(!loan) return { success: false, msg: "Loan not found" };
     if(loan.status === 'closed') return { success: false, msg: "Loan already closed" };
-    
-    const isoDate = convertToYMD(date);
-    if (!isoDate || isoDate.length !== 10) {
-      return { success: false, msg: "Invalid date format. Use DD-MM-YYYY" };
-    }
+    if(!isoDate) return { success: false, msg: "Please select payment date" };
     
     if(loan.method === 1) {
       if(interestPortion < 0 || principalPortion < 0) return { success: false, msg: "Portions cannot be negative" };
@@ -523,7 +525,7 @@
       
       const principalOut = getPrincipalOutstanding(loan);
       if(principalPortion > principalOut) {
-        return { success: false, msg: `Principal portion cannot exceed outstanding principal ₹${principalOut}` };
+        return { success: false, msg: `Principal portion cannot exceed balance ₹${principalOut}` };
       }
       
       const newTxn = {
@@ -540,7 +542,6 @@
       cashCapital += total;
       
       updateLoanStatus(loan);
-      
       await saveToCloud();
       await loadData();
       return { success: true };
@@ -568,15 +569,13 @@
     else if(loan.method === 3) {
       const monthlyRate = loan.interestRate / 100;
       let principalRemaining = getPrincipalOutstanding(loan);
-      let interestDue = principalRemaining * monthlyRate;
-      interestDue = parseFloat(interestDue.toFixed(2));
+      let interestDue = parseFloat((principalRemaining * monthlyRate).toFixed(2));
       if(amount <= interestDue) {
         interestPortionAuto = amount;
         principalPortionAuto = 0;
       } else {
         interestPortionAuto = interestDue;
-        principalPortionAuto = amount - interestDue;
-        if(principalPortionAuto > principalRemaining) principalPortionAuto = principalRemaining;
+        principalPortionAuto = Math.min(amount - interestDue, principalRemaining);
       }
     }
     else {
@@ -587,18 +586,16 @@
       if(loanTxns.length) lastDate = new Date(loanTxns[0].date);
       let currentDate = new Date(isoDate);
       if(isNaN(currentDate)) currentDate = new Date();
-      const diffDays = Math.max(1, Math.ceil((currentDate - lastDate)/(1000*60*60*24)));
+      const diffDays = Math.max(0, Math.floor((currentDate - lastDate)/(1000*60*60*24)));
       const dailyRate = monthlyRate/30;
-      let interestAccrued = principalRemaining * dailyRate * diffDays;
-      interestAccrued = parseFloat(interestAccrued.toFixed(2));
+      let interestAccrued = parseFloat((principalRemaining * dailyRate * diffDays).toFixed(2));
       
       if(amount <= interestAccrued) {
         interestPortionAuto = amount;
         principalPortionAuto = 0;
       } else {
         interestPortionAuto = interestAccrued;
-        principalPortionAuto = amount - interestAccrued;
-        if(principalPortionAuto > principalRemaining) principalPortionAuto = principalRemaining;
+        principalPortionAuto = Math.min(amount - interestAccrued, principalRemaining);
       }
     }
     
@@ -616,17 +613,16 @@
     cashCapital += amount;
     
     updateLoanStatus(loan);
-    
     await saveToCloud();
     await loadData();
     return { success: true };
   }
 
   window.payPlanned = async (plannedDate, expectedAmount) => {
-    const todayDate = formatDateDMY(new Date().toISOString().slice(0,10));
+    const todayISO = new Date().toISOString().slice(0, 10);
     const remark = prompt("Enter remark (optional):", "");
     if(remark !== null) {
-      const result = await processPayment(currentLoanId, todayDate, expectedAmount, 0, 0, remark);
+      const result = await processPayment(currentLoanId, todayISO, expectedAmount, 0, 0, remark);
       if(result.success) {
         if(currentRole === 'admin') alert("Payment recorded successfully!");
       } else alert(result.msg);
@@ -634,15 +630,13 @@
   };
 
   window.deleteTxn = async (id) => {
-    if(!confirm("Delete this payment?")) return;
+    if(!confirm("Delete this payment record permanently?")) return;
     const idx = transactions.findIndex(t => t.id == id);
     if(idx > -1) {
       cashCapital -= transactions[idx].amount;
       transactions.splice(idx, 1);
       const loan = getLoan(currentLoanId);
-      if(loan) {
-        updateLoanStatus(loan);
-      }
+      if(loan) updateLoanStatus(loan);
       await saveToCloud();
       await loadData();
     }
@@ -651,7 +645,7 @@
   async function saveToCloud() {
     if(currentRole !== 'admin') return;
     if(!isDataLoaded) {
-      console.warn("Blocked save: Data not loaded yet.");
+      console.warn("Blocked save: Initial database load not verified.");
       return;
     }
     try {
@@ -665,7 +659,7 @@
       }, { merge: true });
     } catch(err) {
       console.error("Save error:", err);
-      alert("Error saving transaction! Please check your network connection.");
+      alert("Error synchronizing with cloud database!");
     }
   }
 
@@ -673,7 +667,7 @@
     const loan = getLoan(currentLoanId);
     if(!loan) { alert("Select a loan first"); return; }
     const dateInput = document.getElementById('paymentDate').value;
-    if(!dateInput) { alert("Enter date"); return; }
+    if(!dateInput) { alert("Select payment date"); return; }
     const remark = document.getElementById('paymentRemark').value;
     
     if(loan.method === 1) {
@@ -701,6 +695,7 @@
     }
   };
 
+  // Modern PDF Generator for Loan Statement
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -710,80 +705,75 @@
       return;
     }
     const cust = getCustomer(loan.customerId);
-    const customerName = cust ? cust.name : "Vsquar";
+    const customerName = cust ? cust.name : "Vsquar Customer";
     const today = new Date();
     const dateStr = formatDateDMY(today.toISOString().slice(0,10));
-    const fileName = `Loan_${loan.loanNumber || loan.id}_${customerName}_${dateStr}.pdf`;
+    const fileName = `Loan_Statement_${loan.loanNumber || loan.id}_${customerName}_${dateStr}.pdf`;
+    
     const principalOut = getPrincipalOutstanding(loan);
+    const interestEarned = getInterestEarned(loan);
     const interestBalance = getInterestBalance(loan);
+    const daysPassed = getDaysPassed(loan.startDate);
+    const schemeName = getSchemeName(loan.method, loan);
     
     const margin = 10;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    doc.setLineWidth(0.5);
+    // Outer Frame Border
+    doc.setLineWidth(0.4);
     doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
     
-    doc.setFontSize(18);
-    doc.text(`Payment Receipt - Loan #${loan.loanNumber || loan.id}`, margin + 5, margin + 15);
-    doc.setFontSize(12);
-    doc.text(`Customer: ${customerName}`, margin + 5, margin + 25);
-    doc.setFontSize(10);
-    doc.text(`Principal Balance: ₹${principalOut.toFixed(2)}`, margin + 5, margin + 33);
-    doc.text(`Interest Balance: ₹${interestBalance.toFixed(2)}`, margin + 5, margin + 40);
-    if (loan.status === 'closed') {
-      doc.text("Loan Closed", margin + 5, margin + 47);
-      doc.text(`Generated on: ${today.toLocaleString()}`, margin + 5, margin + 54);
-    } else {
-      doc.text(`Generated on: ${today.toLocaleString()}`, margin + 5, margin + 47);
-    }
+    // Header Info
+    doc.setFontSize(16);
+    doc.setTextColor(0, 119, 182);
+    doc.text(`Loan Statement - #${loan.loanNumber || loan.id}`, margin + 6, margin + 12);
     
-    const rows = [];
+    doc.setFontSize(10);
+    doc.setTextColor(50, 50, 50);
+    doc.text(`Customer: ${customerName} ${cust && cust.phone ? '(' + cust.phone + ')' : ''}`, margin + 6, margin + 20);
+    doc.text(`Principal Amount: Rs. ${loan.principalAmount} | Rate: ${loan.interestRate || 0}% Monthly`, margin + 6, margin + 26);
+    doc.text(`Scheme: ${schemeName}`, margin + 6, margin + 32);
+    doc.text(`Disbursed On: ${formatDateDMY(loan.startDate)} (${daysPassed} days active)`, margin + 6, margin + 38);
+    doc.text(`Principal Balance: Rs. ${principalOut.toFixed(2)} | Interest Balance: Rs. ${interestBalance.toFixed(2)}`, margin + 6, margin + 44);
+    doc.text(`Interest Earned: Rs. ${interestEarned.toFixed(2)} | Status: ${loan.status.toUpperCase()}`, margin + 6, margin + 50);
+    doc.text(`Statement Date: ${today.toLocaleString()}`, margin + 6, margin + 56);
+    
+    // Build PDF table data
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
+    const rows = [];
     const tableRows = document.querySelectorAll('#tableBody tr');
     
-    for (let tr of tableRows) {
+    tableRows.forEach(tr => {
       const cells = tr.querySelectorAll('td');
       const rowData = [];
-      for (let i = 0; i < cells.length; i++) {
-        if (i === 1 && !isEMIorWeekly) continue;
-        if (i === cells.length - 1) continue;
-        let cellText = cells[i]?.innerText || '';
-        cellText = cellText.replace(/₹/g, '').trim();
-        if (cellText !== '—' || (i === 7 && cellText === '—')) {
-          rowData.push(cellText);
-        } else if (cellText === '—' && i !== 7) {
-          rowData.push('');
-        } else if (i === 7) {
-          rowData.push(cellText);
-        }
+      const colLimit = (currentRole === 'admin') ? cells.length - 1 : cells.length;
+      for (let i = 0; i < colLimit; i++) {
+        let txt = cells[i]?.innerText || '';
+        rowData.push(txt.replace(/₹/g, '').trim());
       }
       if (rowData.length > 0) rows.push(rowData);
-    }
+    });
     
-    let headers = ['#', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Principal Bal', 'Remark'];
+    let headers = ['#', 'Paid Date', 'Amount (Rs)', 'Interest (Rs)', 'Principal (Rs)', 'Principal Bal (Rs)', 'Remark'];
     if (isEMIorWeekly) {
-      headers = ['#', 'Planned', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Principal Bal', 'Remark'];
+      headers = ['#', 'Planned Date', 'Paid Date', 'Amount (Rs)', 'Interest (Rs)', 'Principal (Rs)', 'Principal Bal (Rs)', 'Remark'];
     }
-    
-    let startY = loan.status === 'closed' ? 60 : 53;
     
     doc.autoTable({
-      startY: startY,
+      startY: 62,
       head: [headers],
       body: rows,
       theme: 'striped',
-      styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+      styles: { fontSize: 7.5, cellPadding: 2.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
       headStyles: { fillColor: [0, 119, 182], textColor: [255, 255, 255] },
-      margin: { left: margin, right: margin }
+      margin: { left: margin + 2, right: margin + 2 }
     });
     
     doc.save(fileName);
   };
 
-  document.getElementById('homeBtn').onclick = () => { window.location.href = 'index.html'; };
-  document.getElementById('refreshBtn').onclick = () => loadData();
-
+  // Initialization
   currentRole = getRoleFromUrl();
   document.getElementById('roleBadge').innerText = currentRole === 'admin' ? "Admin Mode" : "Viewer Mode";
   if(currentRole === 'admin') {
