@@ -11,36 +11,39 @@
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
-    .container { max-width: 100%; width: 88%; margin: 20px auto; background: #fff; padding: 18px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-    h1 { text-align: center; color: #0077b6; font-size: 1.6em; margin: 0; }
+    .container { max-width: 100%; width: 92%; margin: 15px auto; background: #fff; padding: 15px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    h1 { text-align: center; color: #0077b6; font-size: 1.5em; margin: 0; }
     label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; color: #555; }
-    input, select { width: 100%; padding: 9px 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.9em; background: #fff; }
+    input, select { width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.88rem; background: #fff; }
     input[type="date"] { cursor: pointer; }
-    .loan-select-wrapper { margin: 12px 0 8px 0; width: 100%; }
-    #loanSelect { width: 100%; padding: 10px; font-size: 0.9em; font-weight: bold; }
+    .loan-select-wrapper { margin: 10px 0 6px 0; width: 100%; }
+    #loanSelect { width: 100%; padding: 9px; font-size: 0.9em; font-weight: bold; }
     
-    .output-box { background: #e0f7fa; padding: 14px; margin-top: 10px; border-radius: 12px; font-size: 0.85em; line-height: 1.6; border: 1px solid #b2ebf2; }
-    .output-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 6px; }
-    .output-item { background: #ffffff; padding: 8px 10px; border-radius: 8px; border: 1px solid #cce5ff; }
-    .output-item .val { font-weight: bold; color: #0077b6; }
+    /* Compact Single-Box Loan Summary */
+    .output-box { background: #e0f7fa; padding: 10px 14px; margin-top: 8px; border-radius: 10px; font-size: 0.82rem; line-height: 1.5; border: 1px solid #b2ebf2; }
+    .output-box div { margin-bottom: 2px; }
+    .output-box div:last-child { margin-bottom: 0; }
+    .output-box strong { color: #0077b6; }
     
-    button { margin-top: 12px; padding: 11px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.9em; }
+    button { margin-top: 10px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.88rem; }
     button:active { background: #0077b6; }
-    button.small-btn { width: auto; padding: 6px 14px; margin: 0; display: inline-block; font-size: 0.8em; }
+    button.small-btn { width: auto; padding: 5px 12px; margin: 0; display: inline-block; font-size: 0.78rem; }
     button.danger { background: #fee2e2; color: #dc3545; border: 1px solid #fca5a5; }
     button.success { background: #2a9d8f; color: #fff; }
-    .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+    .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
     
-    table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 0.8em; }
-    th, td { border: 1px solid #e2e8f0; padding: 8px 6px; text-align: center; }
+    /* Compact Table Styles */
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.75rem; }
+    th, td { border: 1px solid #e2e8f0; padding: 5px 4px; text-align: center; }
     th { background: #90e0ef; color: #0077b6; font-weight: 700; }
+    td.date-col, th.date-col { white-space: nowrap !important; min-width: 85px; }
     .text-muted { color: #666; font-size: 0.75em; }
-    .footer { text-align: center; margin-top: 25px; background: #0077b6; color: #fff; padding: 10px; font-size: 0.75em; border-radius: 8px; }
-    @media (max-width: 600px) { .container { width: 95%; padding: 12px; } }
-    .role-badge { text-align: right; font-size: 0.72rem; margin-bottom: 6px; color: #0077b6; font-weight: bold; }
-    .payment-panel { background: #f8f9fa; border-radius: 12px; padding: 14px; margin: 15px 0; border: 1px solid #e2e8f0; }
-    .due-alert-row { background: #fff3cd; border-left: 4px solid #ffc107; padding: 8px 12px; margin-bottom: 8px; border-radius: 6px; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
-    .section-title { font-weight: bold; margin: 12px 0 6px 0; color: #0077b6; font-size: 0.88rem; }
+    .footer { text-align: center; margin-top: 20px; background: #0077b6; color: #fff; padding: 8px; font-size: 0.72em; border-radius: 8px; }
+    @media (max-width: 600px) { .container { width: 96%; padding: 10px; } }
+    .role-badge { text-align: right; font-size: 0.7rem; margin-bottom: 4px; color: #0077b6; font-weight: bold; }
+    .payment-panel { background: #f8f9fa; border-radius: 10px; padding: 12px; margin: 12px 0; border: 1px solid #e2e8f0; }
+    .due-alert-row { background: #fff3cd; border-left: 4px solid #ffc107; padding: 6px 10px; margin-bottom: 6px; border-radius: 6px; font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px; }
+    .section-title { font-weight: bold; margin: 10px 0 4px 0; color: #0077b6; font-size: 0.82rem; }
     .paid-late { color: #dc3545; font-weight: bold; }
   </style>
 </head>
@@ -57,18 +60,18 @@
   </div>
   
   <!-- Due Alerts Section -->
-  <div id="dueAlertsSection" style="display:none; margin-bottom: 12px;">
+  <div id="dueAlertsSection" style="display:none; margin-bottom: 10px;">
     <div class="section-title">📅 Upcoming Due Alerts (Next 3 days)</div>
     <div id="dueAlertsContainer"></div>
   </div>
   
-  <!-- Detailed Loan Summary Box -->
+  <!-- Compact Line-by-Line Loan Summary Box -->
   <div id="loanSummary" class="output-box">Select a loan to view details</div>
   
   <!-- Add Payment Panel (Admin Only) -->
   <div id="adminAddBtn" style="display:none;">
     <div class="payment-panel" id="paymentPanel">
-      <h4 style="margin:0 0 10px 0; color:#0077b6;">➕ Add New Payment</h4>
+      <h4 style="margin:0 0 8px 0; color:#0077b6; font-size:0.9rem;">➕ Add New Payment</h4>
       <div id="paymentFields"></div>
       <button id="addPaymentBtn" class="success">Confirm &amp; Record Payment</button>
     </div>
@@ -80,7 +83,7 @@
       <tbody id="tableBody"></tbody>
     </table>
   </div>
-  <div id="noDataMsg" class="text-muted" style="text-align:center; padding:25px;">No loan data found.</div>
+  <div id="noDataMsg" class="text-muted" style="text-align:center; padding:20px;">No loan data found.</div>
   <div class="footer">Vsquar · Equal Partners</div>
 </div>
 
@@ -129,8 +132,8 @@
   function getSchemeName(method, loan) {
     if (method === 1) return "Monthly Interest Only";
     if (method === 2) return "Flexible (Interest first)";
-    if (method === 3) return `Monthly EMI (₹${loan.emiAmount || 0} × ${loan.tenure || 1} M)`;
-    if (method === 4) return `44 Weeks Scheme (₹${loan.weeklyAmount || 250}/Wk)`;
+    if (method === 3) return `Monthly EMI (Rs. ${loan.emiAmount || 0} × ${loan.tenure || 1} M)`;
+    if (method === 4) return `44 Weeks Scheme (Rs. ${loan.weeklyAmount || 250}/Wk)`;
     return "Standard Loan";
   }
 
@@ -193,7 +196,6 @@
       
       const finalDaysDiff = Math.max(0, Math.floor((today - lastDate) / (1000 * 60 * 60 * 24)));
       totalInterest += runningPrincipal * dailyRate * finalDaysDiff;
-      
       return parseFloat(totalInterest.toFixed(2));
     }
     return 0;
@@ -294,7 +296,7 @@
         <div class="due-alert-row">
           <span><strong>Loan #${a.loanNumber}</strong> - ${a.customerName}</span>
           <span>Due: ${a.dueDateStr}</span>
-          <span>Amount: ₹${a.amount}</span>
+          <span>Amount: Rs. ${a.amount}</span>
           <span>Inst #${a.installmentNum}</span>
         </div>
       `).join('');
@@ -321,24 +323,14 @@
     const interestBalance = getInterestBalance(loan);
     const daysPassed = getDaysPassed(loan.startDate);
     const schemeName = getSchemeName(loan.method, loan);
-    const totalCollected = transactions.filter(t => t.loanId == loan.id).reduce((s,t) => s + t.amount, 0);
 
-    // Detailed Loan Info Card
+    // Line by Line Compact Summary Box
     document.getElementById('loanSummary').innerHTML = `
-      <div style="font-size:1.05rem; font-weight:800; color:#0077b6; margin-bottom:4px;">
-        Loan #${loan.loanNumber || loan.id} — ${cust ? cust.name : 'Unknown'} ${cust && cust.phone ? `(${cust.phone})` : ''}
-      </div>
-      <div class="output-grid">
-        <div class="output-item">💵 Principal Amount: <span class="val">₹${loan.principalAmount}</span></div>
-        <div class="output-item">📑 Scheme: <span class="val">${schemeName}</span></div>
-        <div class="output-item">📅 Loan Open: <span class="val">${formatDateDMY(loan.startDate)} (${daysPassed} days)</span></div>
-        <div class="output-item">📈 Rate: <span class="val">${loan.interestRate || 0}% Monthly</span></div>
-        <div class="output-item">📌 Principal Balance: <span class="val">₹${principalOut.toFixed(2)}</span></div>
-        <div class="output-item">💰 Interest Earned: <span class="val">₹${interestEarned.toFixed(2)}</span></div>
-        <div class="output-item">⏳ Interest Balance: <span class="val">₹${interestBalance.toFixed(2)}</span></div>
-        <div class="output-item">✅ Total Collected: <span class="val">₹${totalCollected.toFixed(2)}</span></div>
-        <div class="output-item">⚡ Status: <span class="val" style="${loan.status==='closed'?'color:#dc3545;':'color:#2a9d8f;'}">${loan.status.toUpperCase()}</span></div>
-      </div>
+      <div><strong>Loan #${loan.loanNumber || loan.id}</strong> — ${cust ? cust.name : 'Unknown'} ${cust && cust.phone ? '📞 ' + cust.phone : ''}</div>
+      <div>💵 Amount: <strong>Rs. ${loan.principalAmount}</strong> | Scheme: <strong>${schemeName}</strong></div>
+      <div>📅 Open: <strong>${formatDateDMY(loan.startDate)} (${daysPassed} days)</strong> | Status: <strong>${loan.status.toUpperCase()}</strong></div>
+      <div>📌 Principal Balance: <strong>Rs. ${principalOut.toFixed(2)}</strong> | Interest Balance: <strong>Rs. ${interestBalance.toFixed(2)}</strong></div>
+      <div>💰 Interest Earned: <strong>Rs. ${interestEarned.toFixed(2)}</strong></div>
     `;
 
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
@@ -346,29 +338,29 @@
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
 
-    // Render Dynamic Table Header strictly according to Scheme
+    // Render Compact Dynamic Table Header with specific date-col width
     if (isEMIorWeekly) {
       thead.innerHTML = `<tr>
-        <th>#</th>
-        <th>Planned Date</th>
-        <th>Paid Date</th>
-        <th>Amount (₹)</th>
-        <th>Interest (₹)</th>
-        <th>Principal (₹)</th>
-        <th>Principal Balance (₹)</th>
+        <th style="width:30px;">#</th>
+        <th class="date-col">Planned Date</th>
+        <th class="date-col">Paid Date</th>
+        <th>Amount</th>
+        <th>Interest</th>
+        <th>Principal</th>
+        <th>Balance</th>
         <th>Remark</th>
-        ${currentRole === 'admin' ? '<th class="action-col">Actions</th>' : ''}
+        ${currentRole === 'admin' ? '<th style="width:60px;">Action</th>' : ''}
       </tr>`;
     } else {
       thead.innerHTML = `<tr>
-        <th>#</th>
-        <th>Paid Date</th>
-        <th>Amount (₹)</th>
-        <th>Interest (₹)</th>
-        <th>Principal (₹)</th>
-        <th>Principal Balance (₹)</th>
+        <th style="width:30px;">#</th>
+        <th class="date-col">Paid Date</th>
+        <th>Amount</th>
+        <th>Interest</th>
+        <th>Principal</th>
+        <th>Balance</th>
         <th>Remark</th>
-        ${currentRole === 'admin' ? '<th class="action-col">Actions</th>' : ''}
+        ${currentRole === 'admin' ? '<th style="width:60px;">Action</th>' : ''}
       </tr>`;
     }
 
@@ -383,22 +375,32 @@
         const plannedDate = schedule[idx].planned;
         
         tr.insertCell(0).innerText = idx + 1;
-        tr.insertCell(1).innerText = formatDateDMY(plannedDate);
+        
+        const cellPlanned = tr.insertCell(1);
+        cellPlanned.className = "date-col";
+        cellPlanned.innerText = formatDateDMY(plannedDate);
         
         if (matched) {
           const paidDate = matched.date;
           const isLate = new Date(paidDate) > new Date(plannedDate);
           const dateClass = isLate ? 'paid-late' : '';
-          tr.insertCell(2).innerHTML = `<span class="${dateClass}">${formatDateDMY(paidDate)}</span>`;
-          tr.insertCell(3).innerText = `₹${matched.amount}`;
-          tr.insertCell(4).innerText = `₹${matched.interestPortion || 0}`;
-          tr.insertCell(5).innerText = `₹${matched.principalPortion || 0}`;
+          
+          const cellPaid = tr.insertCell(2);
+          cellPaid.className = "date-col";
+          cellPaid.innerHTML = `<span class="${dateClass}">${formatDateDMY(paidDate)}</span>`;
+          
+          tr.insertCell(3).innerText = matched.amount;
+          tr.insertCell(4).innerText = matched.interestPortion || 0;
+          tr.insertCell(5).innerText = matched.principalPortion || 0;
           cumulativePrincipal += (matched.principalPortion || 0);
           const remainingPrincipal = Math.max(0, loan.principalAmount - cumulativePrincipal);
-          tr.insertCell(6).innerText = `₹${remainingPrincipal.toFixed(2)}`;
+          tr.insertCell(6).innerText = remainingPrincipal.toFixed(2);
           tr.insertCell(7).innerText = matched.remark || "";
         } else {
-          tr.insertCell(2).innerText = "—";
+          const cellPaid = tr.insertCell(2);
+          cellPaid.className = "date-col";
+          cellPaid.innerText = "—";
+          
           tr.insertCell(3).innerText = "—";
           tr.insertCell(4).innerText = "—";
           tr.insertCell(5).innerText = "—";
@@ -409,7 +411,7 @@
         if(currentRole === 'admin') {
           const actionCell = tr.insertCell(8);
           if(matched) {
-            actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑 Delete</button>`;
+            actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${matched.id})">🗑</button>`;
           } else {
             actionCell.innerHTML = `<button class="small-btn success" onclick="payPlanned('${plannedDate}', ${schedule[idx].expected})">+ Pay</button>`;
           }
@@ -424,28 +426,34 @@
         const remainingPrincipal = Math.max(0, loan.principalAmount - cumulativePrincipal);
         
         tr.insertCell(0).innerText = idx + 1;
-        tr.insertCell(1).innerText = formatDateDMY(txn.date);
-        tr.insertCell(2).innerText = `₹${txn.amount}`;
-        tr.insertCell(3).innerText = `₹${txn.interestPortion || 0}`;
-        tr.insertCell(4).innerText = `₹${txn.principalPortion || 0}`;
-        tr.insertCell(5).innerText = `₹${remainingPrincipal.toFixed(2)}`;
+        
+        const cellDate = tr.insertCell(1);
+        cellDate.className = "date-col";
+        cellDate.innerText = formatDateDMY(txn.date);
+        
+        tr.insertCell(2).innerText = txn.amount;
+        tr.insertCell(3).innerText = txn.interestPortion || 0;
+        tr.insertCell(4).innerText = txn.principalPortion || 0;
+        tr.insertCell(5).innerText = remainingPrincipal.toFixed(2);
         tr.insertCell(6).innerText = txn.remark || "";
         
         if(currentRole === 'admin') {
           const actionCell = tr.insertCell(7);
-          actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${txn.id})">🗑 Delete</button>`;
+          actionCell.innerHTML = `<button class="small-btn danger" onclick="deleteTxn(${txn.id})">🗑</button>`;
         }
       });
       
       if (loanTxns.length === 0) {
         const tr = tbody.insertRow();
         tr.insertCell(0).innerText = "—";
-        tr.insertCell(1).innerText = "—";
+        const cellDate = tr.insertCell(1);
+        cellDate.className = "date-col";
+        cellDate.innerText = "—";
         tr.insertCell(2).innerText = "—";
         tr.insertCell(3).innerText = "—";
         tr.insertCell(4).innerText = "—";
-        tr.insertCell(5).innerText = `₹${loan.principalAmount.toFixed(2)}`;
-        tr.insertCell(6).innerText = "No transactions recorded yet";
+        tr.insertCell(5).innerText = loan.principalAmount.toFixed(2);
+        tr.insertCell(6).innerText = "No transactions";
         if (currentRole === 'admin') tr.insertCell(7).innerText = "";
       }
     }
@@ -463,7 +471,7 @@
       const c = getCustomer(l.customerId);
       const principalOut = getPrincipalOutstanding(l);
       const statusText = l.status === 'closed' ? ' [CLOSED]' : '';
-      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Bal: ₹${principalOut.toFixed(2)}`;
+      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Bal: Rs. ${principalOut.toFixed(2)}`;
       const opt = document.createElement('option');
       opt.value = l.id;
       opt.textContent = optionText;
@@ -490,9 +498,9 @@
     
     if(loan.method === 1) {
       container.innerHTML = `
-        <label>Interest Portion (₹)</label>
+        <label>Interest Portion (Rs.)</label>
         <input type="number" id="interestPortion" placeholder="Interest amount" step="any" value="0">
-        <label>Principal Portion (₹)</label>
+        <label>Principal Portion (Rs.)</label>
         <input type="number" id="principalPortion" placeholder="Principal amount" step="any" value="0">
         <label>Payment Date</label>
         <input type="date" id="paymentDate" value="${todayISO}">
@@ -502,7 +510,7 @@
       `;
     } else {
       container.innerHTML = `
-        <label>Payment Amount (₹)</label>
+        <label>Payment Amount (Rs.)</label>
         <input type="number" id="paymentAmount" placeholder="Enter amount" step="any">
         <label>Payment Date</label>
         <input type="date" id="paymentDate" value="${todayISO}">
@@ -525,7 +533,7 @@
       
       const principalOut = getPrincipalOutstanding(loan);
       if(principalPortion > principalOut) {
-        return { success: false, msg: `Principal portion cannot exceed balance ₹${principalOut}` };
+        return { success: false, msg: `Principal portion cannot exceed balance Rs. ${principalOut}` };
       }
       
       const newTxn = {
@@ -695,7 +703,7 @@
     }
   };
 
-  // Modern PDF Generator for Loan Statement
+  // Customer-Oriented PDF Statement Generator
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -705,13 +713,12 @@
       return;
     }
     const cust = getCustomer(loan.customerId);
-    const customerName = cust ? cust.name : "Vsquar Customer";
+    const customerName = cust ? cust.name : "Customer";
     const today = new Date();
     const dateStr = formatDateDMY(today.toISOString().slice(0,10));
     const fileName = `Loan_Statement_${loan.loanNumber || loan.id}_${customerName}_${dateStr}.pdf`;
     
     const principalOut = getPrincipalOutstanding(loan);
-    const interestEarned = getInterestEarned(loan);
     const interestBalance = getInterestBalance(loan);
     const daysPassed = getDaysPassed(loan.startDate);
     const schemeName = getSchemeName(loan.method, loan);
@@ -724,22 +731,27 @@
     doc.setLineWidth(0.4);
     doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
     
-    // Header Info
-    doc.setFontSize(16);
+    // Header Info (No % rate, Rs. instead of symbol)
+    doc.setFontSize(15);
     doc.setTextColor(0, 119, 182);
-    doc.text(`Loan Statement - #${loan.loanNumber || loan.id}`, margin + 6, margin + 12);
+    doc.text(`LOAN STATEMENT - Loan #${loan.loanNumber || loan.id}`, margin + 5, margin + 11);
     
-    doc.setFontSize(10);
+    doc.setFontSize(9.5);
     doc.setTextColor(50, 50, 50);
-    doc.text(`Customer: ${customerName} ${cust && cust.phone ? '(' + cust.phone + ')' : ''}`, margin + 6, margin + 20);
-    doc.text(`Principal Amount: Rs. ${loan.principalAmount} | Rate: ${loan.interestRate || 0}% Monthly`, margin + 6, margin + 26);
-    doc.text(`Scheme: ${schemeName}`, margin + 6, margin + 32);
-    doc.text(`Disbursed On: ${formatDateDMY(loan.startDate)} (${daysPassed} days active)`, margin + 6, margin + 38);
-    doc.text(`Principal Balance: Rs. ${principalOut.toFixed(2)} | Interest Balance: Rs. ${interestBalance.toFixed(2)}`, margin + 6, margin + 44);
-    doc.text(`Interest Earned: Rs. ${interestEarned.toFixed(2)} | Status: ${loan.status.toUpperCase()}`, margin + 6, margin + 50);
-    doc.text(`Statement Date: ${today.toLocaleString()}`, margin + 6, margin + 56);
+    doc.text(`Customer Name : ${customerName} ${cust && cust.phone ? '(' + cust.phone + ')' : ''}`, margin + 5, margin + 18);
+    doc.text(`Loan Amount   : Rs. ${loan.principalAmount}`, margin + 5, margin + 24);
+    doc.text(`Loan Scheme   : ${schemeName}`, margin + 5, margin + 30);
+    doc.text(`Start Date    : ${formatDateDMY(loan.startDate)} (${daysPassed} days active)`, margin + 5, margin + 36);
     
-    // Build PDF table data
+    if (loan.method === 4 || loan.method === 3) {
+      doc.text(`Balance Due   : Rs. ${principalOut.toFixed(2)}`, margin + 5, margin + 42);
+    } else {
+      doc.text(`Principal Bal : Rs. ${principalOut.toFixed(2)} | Interest Bal: Rs. ${interestBalance.toFixed(2)}`, margin + 5, margin + 42);
+    }
+    
+    doc.text(`Status        : ${loan.status.toUpperCase()} | Generated: ${today.toLocaleDateString()}`, margin + 5, margin + 48);
+    
+    // Build PDF table data without symbols
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
     const rows = [];
     const tableRows = document.querySelectorAll('#tableBody tr');
@@ -750,22 +762,23 @@
       const colLimit = (currentRole === 'admin') ? cells.length - 1 : cells.length;
       for (let i = 0; i < colLimit; i++) {
         let txt = cells[i]?.innerText || '';
-        rowData.push(txt.replace(/₹/g, '').trim());
+        txt = txt.replace(/₹/g, '').replace(/Rs\./g, '').trim();
+        rowData.push(txt);
       }
       if (rowData.length > 0) rows.push(rowData);
     });
     
-    let headers = ['#', 'Paid Date', 'Amount (Rs)', 'Interest (Rs)', 'Principal (Rs)', 'Principal Bal (Rs)', 'Remark'];
+    let headers = ['#', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Balance', 'Remark'];
     if (isEMIorWeekly) {
-      headers = ['#', 'Planned Date', 'Paid Date', 'Amount (Rs)', 'Interest (Rs)', 'Principal (Rs)', 'Principal Bal (Rs)', 'Remark'];
+      headers = ['#', 'Planned Date', 'Paid Date', 'Amount', 'Interest', 'Principal', 'Balance', 'Remark'];
     }
     
     doc.autoTable({
-      startY: 62,
+      startY: 54,
       head: [headers],
       body: rows,
       theme: 'striped',
-      styles: { fontSize: 7.5, cellPadding: 2.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
+      styles: { fontSize: 7.5, cellPadding: 2.2, lineColor: [210, 210, 210], lineWidth: 0.1 },
       headStyles: { fillColor: [0, 119, 182], textColor: [255, 255, 255] },
       margin: { left: margin + 2, right: margin + 2 }
     });
