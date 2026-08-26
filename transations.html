@@ -11,7 +11,7 @@
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f0f4f8; margin: 0; padding: 0; color: #333; }
-    .container { max-width: 100%; width: 92%; margin: 15px auto; background: #fff; padding: 15px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .container { max-width: 100%; width: 92%; margin: 15px auto; background: #fff; padding: 16px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
     h1 { text-align: center; color: #0077b6; font-size: 1.5em; margin: 0; }
     label { display: block; margin-top: 10px; font-weight: bold; font-size: 0.85em; color: #555; }
     input, select { width: 100%; padding: 8px 10px; margin-top: 4px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.88rem; background: #fff; }
@@ -19,10 +19,9 @@
     .loan-select-wrapper { margin: 10px 0 6px 0; width: 100%; }
     #loanSelect { width: 100%; padding: 9px; font-size: 0.9em; font-weight: bold; }
     
-    /* Compact Single-Box Loan Summary */
-    .output-box { background: #e0f7fa; padding: 10px 14px; margin-top: 8px; border-radius: 10px; font-size: 0.82rem; line-height: 1.5; border: 1px solid #b2ebf2; }
-    .output-box div { margin-bottom: 2px; }
-    .output-box div:last-child { margin-bottom: 0; }
+    /* Clean Line-by-Line Output Box */
+    .output-box { background: #e0f7fa; padding: 12px 14px; margin-top: 8px; border-radius: 10px; font-size: 0.84rem; line-height: 1.6; border: 1px solid #b2ebf2; }
+    .output-box .info-row { margin-bottom: 3px; }
     .output-box strong { color: #0077b6; }
     
     button { margin-top: 10px; padding: 10px; border: none; border-radius: 8px; background: #00b4d8; color: #fff; font-weight: bold; cursor: pointer; width: 100%; font-size: 0.88rem; }
@@ -32,9 +31,9 @@
     button.success { background: #2a9d8f; color: #fff; }
     .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
     
-    /* Compact Table Styles */
+    /* Table Styles */
     table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.75rem; }
-    th, td { border: 1px solid #e2e8f0; padding: 5px 4px; text-align: center; }
+    th, td { border: 1px solid #e2e8f0; padding: 6px 4px; text-align: center; }
     th { background: #90e0ef; color: #0077b6; font-weight: 700; }
     td.date-col, th.date-col { white-space: nowrap !important; min-width: 85px; }
     .text-muted { color: #666; font-size: 0.75em; }
@@ -52,7 +51,6 @@
   <div class="role-badge" id="roleBadge"></div>
   <div class="flex-row">
     <h1>Vsquar · Transaction Manager</h1>
-    <button id="downloadPdfBtn" class="small-btn success">📄 Save Loan Statement</button>
   </div>
   
   <div class="loan-select-wrapper">
@@ -65,8 +63,11 @@
     <div id="dueAlertsContainer"></div>
   </div>
   
-  <!-- Compact Line-by-Line Loan Summary Box -->
+  <!-- Line-by-Line Loan Summary Box -->
   <div id="loanSummary" class="output-box">Select a loan to view details</div>
+  
+  <!-- Download Statement Button Placed Under Summary Box -->
+  <button id="downloadPdfBtn" class="success" style="margin-top:8px;">📄 Download Loan Statement (PDF)</button>
   
   <!-- Add Payment Panel (Admin Only) -->
   <div id="adminAddBtn" style="display:none;">
@@ -133,7 +134,7 @@
     if (method === 1) return "Monthly Interest Only";
     if (method === 2) return "Flexible (Interest first)";
     if (method === 3) return `Monthly EMI (Rs. ${loan.emiAmount || 0} × ${loan.tenure || 1} M)`;
-    if (method === 4) return `44 Weeks Scheme (Rs. ${loan.weeklyAmount || 250}/Wk)`;
+    if (method === 4) return `44 Weeks Scheme (Rs. ${loan.weeklyAmount || 250} / Week)`;
     return "Standard Loan";
   }
 
@@ -311,11 +312,13 @@
       document.getElementById('transactionTable').style.display = 'none';
       document.getElementById('noDataMsg').style.display = 'block';
       document.getElementById('loanSummary').innerHTML = 'Select a loan to view details';
+      document.getElementById('downloadPdfBtn').style.display = 'none';
       return;
     }
 
     document.getElementById('noDataMsg').style.display = 'none';
     document.getElementById('transactionTable').style.display = 'table';
+    document.getElementById('downloadPdfBtn').style.display = 'block';
     
     const cust = getCustomer(loan.customerId);
     const principalOut = getPrincipalOutstanding(loan);
@@ -324,13 +327,31 @@
     const daysPassed = getDaysPassed(loan.startDate);
     const schemeName = getSchemeName(loan.method, loan);
 
-    // Line by Line Compact Summary Box
+    // Calculate remaining for Weekly / EMI (Principal + Interest)
+    const totalExpected = getTotalExpectedForLoan(loan);
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
+    const totalRemainingWeeklyEMI = Math.max(0, totalExpected - totalPaid);
+
+    // Line-by-Line Clean Display
+    let balanceLine = '';
+    if (loan.method === 4 || loan.method === 3) {
+      balanceLine = `<div class="info-row">Total Remaining Due: <strong>Rs. ${totalRemainingWeeklyEMI.toFixed(2)}</strong></div>`;
+    } else {
+      balanceLine = `
+        <div class="info-row">Principal Balance: <strong>Rs. ${principalOut.toFixed(2)}</strong></div>
+        <div class="info-row">Interest Balance: <strong>Rs. ${interestBalance.toFixed(2)}</strong></div>
+        <div class="info-row">Interest Earned: <strong>Rs. ${interestEarned.toFixed(2)}</strong></div>
+      `;
+    }
+
     document.getElementById('loanSummary').innerHTML = `
-      <div><strong>Loan #${loan.loanNumber || loan.id}</strong> — ${cust ? cust.name : 'Unknown'} ${cust && cust.phone ? '📞 ' + cust.phone : ''}</div>
-      <div>💵 Amount: <strong>Rs. ${loan.principalAmount}</strong> | Scheme: <strong>${schemeName}</strong></div>
-      <div>📅 Open: <strong>${formatDateDMY(loan.startDate)} (${daysPassed} days)</strong> | Status: <strong>${loan.status.toUpperCase()}</strong></div>
-      <div>📌 Principal Balance: <strong>Rs. ${principalOut.toFixed(2)}</strong> | Interest Balance: <strong>Rs. ${interestBalance.toFixed(2)}</strong></div>
-      <div>💰 Interest Earned: <strong>Rs. ${interestEarned.toFixed(2)}</strong></div>
+      <div class="info-row">Loan Account: <strong>#${loan.loanNumber || loan.id}</strong></div>
+      <div class="info-row">Customer: <strong>${cust ? cust.name : 'Unknown'} ${cust && cust.phone ? '(' + cust.phone + ')' : ''}</strong></div>
+      <div class="info-row">Loan Amount: <strong>Rs. ${loan.principalAmount}</strong></div>
+      <div class="info-row">Scheme: <strong>${schemeName}</strong></div>
+      <div class="info-row">Open Date: <strong>${formatDateDMY(loan.startDate)} (${daysPassed} days active)</strong></div>
+      ${balanceLine}
+      <div class="info-row">Loan Status: <strong>${loan.status.toUpperCase()}</strong></div>
     `;
 
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
@@ -338,7 +359,6 @@
     const tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
 
-    // Render Compact Dynamic Table Header with specific date-col width
     if (isEMIorWeekly) {
       thead.innerHTML = `<tr>
         <th style="width:30px;">#</th>
@@ -400,7 +420,6 @@
           const cellPaid = tr.insertCell(2);
           cellPaid.className = "date-col";
           cellPaid.innerText = "—";
-          
           tr.insertCell(3).innerText = "—";
           tr.insertCell(4).innerText = "—";
           tr.insertCell(5).innerText = "—";
@@ -467,17 +486,29 @@
       if (a.status !== 'closed' && b.status === 'closed') return -1;
       return 0;
     });
+
     sortedLoans.forEach(l => {
       const c = getCustomer(l.customerId);
-      const principalOut = getPrincipalOutstanding(l);
+      let balanceDisplay = 0;
+      
+      if (l.method === 4 || l.method === 3) {
+        // Show Total Expected Remaining for 44 Weeks & Monthly EMI
+        const totalExpected = getTotalExpectedForLoan(l);
+        const totalPaid = transactions.filter(t => t.loanId == l.id).reduce((sum, t) => sum + t.amount, 0);
+        balanceDisplay = Math.max(0, totalExpected - totalPaid);
+      } else {
+        balanceDisplay = getPrincipalOutstanding(l);
+      }
+
       const statusText = l.status === 'closed' ? ' [CLOSED]' : '';
-      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Bal: Rs. ${principalOut.toFixed(2)}`;
+      const optionText = `#${l.loanNumber || l.id} - ${c ? c.name : 'N/A'}${statusText} | Bal: Rs. ${balanceDisplay.toFixed(2)}`;
       const opt = document.createElement('option');
       opt.value = l.id;
       opt.textContent = optionText;
       if(currentLoanId == l.id) opt.selected = true;
       select.appendChild(opt);
     });
+
     select.onchange = (e) => {
       currentLoanId = e.target.value ? parseInt(e.target.value) : null;
       renderTable();
@@ -703,7 +734,7 @@
     }
   };
 
-  // Customer-Oriented PDF Statement Generator
+  // Multi-Page Bordered PDF Statement Generator
   document.getElementById('downloadPdfBtn').onclick = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
@@ -723,15 +754,14 @@
     const daysPassed = getDaysPassed(loan.startDate);
     const schemeName = getSchemeName(loan.method, loan);
     
+    // Total Remaining calculation for 44-week / EMI
+    const totalExpected = getTotalExpectedForLoan(loan);
+    const totalPaid = transactions.filter(t => t.loanId == loan.id).reduce((sum, t) => sum + t.amount, 0);
+    const totalRemainingWeeklyEMI = Math.max(0, totalExpected - totalPaid);
+
     const margin = 10;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Outer Frame Border
-    doc.setLineWidth(0.4);
-    doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
-    
-    // Header Info (No % rate, Rs. instead of symbol)
+    // Header Info
     doc.setFontSize(15);
     doc.setTextColor(0, 119, 182);
     doc.text(`LOAN STATEMENT - Loan #${loan.loanNumber || loan.id}`, margin + 5, margin + 11);
@@ -744,14 +774,14 @@
     doc.text(`Start Date    : ${formatDateDMY(loan.startDate)} (${daysPassed} days active)`, margin + 5, margin + 36);
     
     if (loan.method === 4 || loan.method === 3) {
-      doc.text(`Balance Due   : Rs. ${principalOut.toFixed(2)}`, margin + 5, margin + 42);
+      doc.text(`Total Balance : Rs. ${totalRemainingWeeklyEMI.toFixed(2)}`, margin + 5, margin + 42);
     } else {
       doc.text(`Principal Bal : Rs. ${principalOut.toFixed(2)} | Interest Bal: Rs. ${interestBalance.toFixed(2)}`, margin + 5, margin + 42);
     }
     
-    doc.text(`Status        : ${loan.status.toUpperCase()} | Generated: ${today.toLocaleDateString()}`, margin + 5, margin + 48);
+    doc.text(`Status        : ${loan.status.toUpperCase()}`, margin + 5, margin + 48);
     
-    // Build PDF table data without symbols
+    // Prepare table rows
     const isEMIorWeekly = (loan.method === 3 || loan.method === 4);
     const rows = [];
     const tableRows = document.querySelectorAll('#tableBody tr');
@@ -774,14 +804,35 @@
     }
     
     doc.autoTable({
-      startY: 54,
+      startY: 53,
       head: [headers],
       body: rows,
       theme: 'striped',
       styles: { fontSize: 7.5, cellPadding: 2.2, lineColor: [210, 210, 210], lineWidth: 0.1 },
       headStyles: { fillColor: [0, 119, 182], textColor: [255, 255, 255] },
-      margin: { left: margin + 2, right: margin + 2 }
+      margin: { left: margin + 2, right: margin + 2, bottom: 18 }
     });
+    
+    // Draw Border and Footer on EVERY Page
+    const pageCount = doc.internal.getNumberOfPages();
+    const nowTimestamp = `${formatDateDMY(today.toISOString().slice(0,10))} ${today.toLocaleTimeString()}`;
+
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Full Page Border
+      doc.setDrawColor(180, 180, 180);
+      doc.setLineWidth(0.4);
+      doc.rect(margin, margin, pageWidth - (margin * 2), pageHeight - (margin * 2));
+      
+      // Footer text
+      doc.setFontSize(7.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text("Computer generated statement, no signature required.", margin + 5, pageHeight - margin - 5);
+      doc.text(`Print on: ${nowTimestamp} | Page ${i} of ${pageCount}`, pageWidth - margin - 5, pageHeight - margin - 5, { align: 'right' });
+    }
     
     doc.save(fileName);
   };
