@@ -180,7 +180,7 @@
                     <span class="val" id="dashOutstanding">₹0.00</span>
                 </div>
                 <div class="dash-metric">
-                    <span>📈 Approx Profit (incl. accrued):</span>
+                    <span>📈 Approx Profit :</span>
                     <span class="val text-green" id="dashApproxProfit">₹0.00</span>
                 </div>
                 <div class="dash-metric">
@@ -442,7 +442,7 @@
                     dueDate: nextDueDate.toISOString().slice(0, 10),
                     dueDateStr: formatDateDMY(nextDueDate.toISOString().slice(0, 10)),
                     isOverdue: isOverdue,
-                    methodText: loan.method === 4 ? `Weekly ₹${loan.weeklyAmount}` : `EMI ₹${loan.emiAmount}`,
+                    methodText: loan.method === 4 ? `Weekly ₹${(loan.weeklyAmount || 0).toFixed(2)}` : `EMI ₹${(loan.emiAmount || 0).toFixed(2)}`,
                     installmentNum: nextInstallmentIndex,
                     loanNumber: loan.loanNumber || loan.id
                 };
@@ -559,9 +559,9 @@
                 id: Date.now() + Math.random(),
                 loanId: loan.id,
                 date,
-                amount,
-                interestPortion,
-                principalPortion,
+                amount: parseFloat(amount.toFixed(2)),
+                interestPortion: parseFloat(interestPortion.toFixed(2)),
+                principalPortion: parseFloat(principalPortion.toFixed(2)),
                 remark: remark || "",
                 timestamp: new Date().toISOString()
             };
@@ -598,7 +598,7 @@
             const newLoan = {
                 id: Date.now(),
                 customerId: custId,
-                principalAmount: amount,
+                principalAmount: parseFloat(amount.toFixed(2)),
                 interestRate: method === 4 ? 0 : rate,
                 method,
                 status: 'active',
@@ -709,8 +709,8 @@
                 let methodDesc = '';
                 if (loan.method === 1) methodDesc = 'Interest Only';
                 else if (loan.method === 2) methodDesc = 'Flexible';
-                else if (loan.method === 3) methodDesc = `Monthly EMI (₹${loan.emiAmount})`;
-                else methodDesc = `44 Wks (₹${loan.weeklyAmount} × ${loan.tenure})`;
+                else if (loan.method === 3) methodDesc = `Monthly EMI (₹${(loan.emiAmount || 0).toFixed(2)})`;
+                else methodDesc = `44 Wks (₹${(loan.weeklyAmount || 0).toFixed(2)} × ${loan.tenure})`;
 
                 const expectedLine = (loan.method === 3 || loan.method === 4) ? `<div style="font-size:0.78rem; color:var(--primary); font-weight:700;">Remaining: ₹${totalExpectedRemaining.toFixed(2)}</div>` : '';
                 return `<div class="item-card">
@@ -718,7 +718,7 @@
                             <strong>${cust?cust.name:'Unknown'} (Loan #${loan.loanNumber || loan.id})</strong>
                             <span class="role-pill" style="${loan.status==='closed'?'background:#fee2e2; color:#ef4444;':''}">${loan.status.toUpperCase()}</span>
                         </div>
-                        <div style="font-size:0.8rem; color:var(--text-muted); margin:4px 0;">Principal: <strong>₹${loan.principalAmount}</strong> | ${methodDesc} | Start: ${formatDateDMY(loan.startDate)}</div>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin:4px 0;">Principal: <strong>₹${(loan.principalAmount || 0).toFixed(2)}</strong> | ${methodDesc} | Start: ${formatDateDMY(loan.startDate)}</div>
                         <div style="font-size:0.8rem;">Principal Balance: <strong>₹${principalBal.toFixed(2)}</strong></div>
                         ${expectedLine}
                     </div>`;
@@ -728,7 +728,7 @@
             if (txnLoan) {
                 txnLoan.innerHTML = '<option value="">-- Choose Loan Account --</option>' + loans.map(l => {
                     const cust = getCustomer(l.customerId);
-                    return `<option value="${l.id}">#${l.loanNumber || l.id} - ${cust?cust.name:'N/A'} (₹${l.principalAmount})</option>`;
+                    return `<option value="${l.id}">#${l.loanNumber || l.id} - ${cust?cust.name:'N/A'} (₹${(l.principalAmount || 0).toFixed(2)})</option>`;
                 }).join('');
             }
         }
@@ -743,9 +743,9 @@
                 return `<div class="item-card">
                     <div class="flex-between">
                         <strong>${cust?cust.name:'Unknown'} (Loan #${loan?.loanNumber || '?'})</strong>
-                        <span style="font-weight:700; color:var(--primary);">₹${txn.amount}</span>
+                        <span style="font-weight:700; color:var(--primary);">₹${(txn.amount || 0).toFixed(2)}</span>
                     </div>
-                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Date: ${formatDateDMY(txn.date)} | Principal: ₹${txn.principalPortion} | Interest: ₹${txn.interestPortion}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Date: ${formatDateDMY(txn.date)} | Principal: ₹${(txn.principalPortion || 0).toFixed(2)} | Interest: ₹${(txn.interestPortion || 0).toFixed(2)}</div>
                     ${txn.remark ? `<div style="font-size:0.75rem; color:var(--text-muted); font-style:italic;">Note: ${escapeHtml(txn.remark)}</div>` : ''}
                 </div>`;
             }).join('');
@@ -838,7 +838,7 @@
                 const method = parseInt(document.getElementById('loanMethod').value);
                 if (isNaN(amount) || amount <= 0) return alert("Enter valid principal amount");
                 if (method !== 4 && (isNaN(rate) || rate < 0)) return alert("Enter monthly interest rate");
-                if (amount > cashCapital) return alert(`Insufficient cash on hand. Available: ₹${cashCapital}`);
+                if (amount > cashCapital) return alert(`Insufficient cash on hand. Available: ₹${cashCapital.toFixed(2)}`);
 
                 let tenure = null, weeklyAmt = null;
                 if (method === 3 || method === 4) {
@@ -908,8 +908,10 @@
         // SECURITY / UNLOCK
         // ------------------------------------------------------------
         async function unlockApp() {
-            const pwd = document.getElementById('passwordInput').value;
-            if (pwd === '2') {
+            const pwd = document.getElementById('passwordInput').value.trim();
+            if (pwd === '0000') {
+                window.location.href = 'exp.html';
+            } else if (pwd === '2') {
                 currentRole = "admin";
                 document.getElementById('roleBadge').innerText = "Admin Mode";
                 await proceed();
